@@ -3,13 +3,22 @@ using System;
 
 public class MyBot : IChessBot
 {
+    int positionsEvaluated = 0;
+    int branchesPruned = 0;
+    const int clearlyWinningDifference = 2000; 
+
+    const double captureBonusDepth = 0.4;
+    int currentEval = 0;
+
     // Piece values: null, pawn, knight, bishop, rook, queen, king
     int[] pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
 
     public Move Think(Board board, Timer timer)
     {
-        //Console.WriteLine(timer.MillisecondsRemaining);
-        int depth = 3;
+        positionsEvaluated = 0; //DEBUG
+        branchesPruned = 0; //DEBUG
+
+        double depth = 3;
         if (timer.MillisecondsRemaining < 10000)
         {
             depth = 2;
@@ -18,73 +27,112 @@ public class MyBot : IChessBot
                 depth = 1;
             }
         }
-
+        currentEval = Eval(board);
         Move[] allMoves = board.GetLegalMoves();
         Move bestMove = allMoves[0];
         int bestEval = 0;
 
         if (board.IsWhiteToMove)
         {
-            bestEval = -100000;
+            bestEval = Int16.MinValue;
             foreach (Move move in allMoves)
             {
+                int a = Int16.MinValue;
+                int b = Int16.MaxValue;
                 board.MakeMove(move);
-                if (MinMax(board, depth) > bestEval)
+                int eval = MinMax(board, depth, a, b);
+                if (eval > bestEval)
                 {
                     bestMove = move;
-                    bestEval = Eval(board);
+                    bestEval = eval;
                 }
                 board.UndoMove(move);
             }
         }
         else
         {
-            bestEval = 100000;
+            bestEval = Int16.MaxValue;
             foreach (Move move in allMoves)
             {
+                int a = Int16.MinValue;
+                int b = Int16.MaxValue;
                 board.MakeMove(move);
-                if (MinMax(board, depth) < bestEval)
+                int eval = MinMax(board, depth, a, b);
+                if (eval < bestEval)
                 {
                     bestMove = move;
-                    bestEval = Eval(board);
+                    bestEval = eval;
                 }
                 board.UndoMove(move);
             }
         }
-        Console.WriteLine(bestEval);
+        Console.Write("Eval: "); //DEBUG
+        Console.WriteLine(bestEval/100); //DEBUG
+        Console.Write("Positions evaluated: "); //DEBUG
+        Console.WriteLine(positionsEvaluated); //DEBUG
+        Console.Write("Branches pruned: "); //DEBUG
+        Console.WriteLine(branchesPruned); //DEBUG
         return bestMove;
     }
 
-    int MinMax(Board board, int depth)
+    int MinMax(Board board, double depth, int a, int b)
     {
-        if(depth == 0 || board.IsInCheckmate())
+        int eval = Eval(board);
+        if(depth <= 0 || board.IsInCheckmate())
         {
-            return Eval(board);
+            return eval;
+        }
+        if (eval - currentEval >= clearlyWinningDifference)
+        {
+            Console.WriteLine("Pruned for clearlyWinningDifference");
+            branchesPruned++; //DEBUG
+            return Int32.MaxValue;
+        }
+        if (eval - currentEval <= -clearlyWinningDifference)
+        {
+            Console.WriteLine("Pruned for clearlyWinningDifference");
+            branchesPruned++; //DEBUG
+            return Int32.MinValue;
         }
 
         if (board.IsWhiteToMove)
         {
-            int bestEval = -100000;
+            int bestEval = Int16.MinValue;
             Move[] allMoves = board.GetLegalMoves();
 
             foreach (Move move in allMoves)
             {
                 board.MakeMove(move);
-                bestEval = Math.Max(MinMax(board, depth - 1), bestEval);
+                if (move.IsCapture) bestEval = Math.Max(MinMax(board, depth - 1 + captureBonusDepth, a, b), bestEval);
+                else bestEval = Math.Max(MinMax(board, depth - 1, a, b), bestEval);
                 board.UndoMove(move);
+                if (bestEval > b)
+                {
+                    branchesPruned++; //DEBUG
+                    break;
+                }
+                a = Math.Max(a, bestEval);
             }
             return bestEval;
         }
         else
         {
-            int bestEval = 100000;
+            int bestEval = Int16.MaxValue;
             Move[] allMoves = board.GetLegalMoves();
 
             foreach (Move move in allMoves)
             {
                 board.MakeMove(move);
-                bestEval = Math.Min(MinMax(board, depth - 1), bestEval);
+                if (move.IsCapture) bestEval = Math.Min(MinMax(board, depth - 1 + captureBonusDepth, a, b), bestEval);
+                else bestEval = Math.Min(MinMax(board, depth - 1, a, b), bestEval);
                 board.UndoMove(move);
+                if (bestEval < a)
+                {
+                    branchesPruned++; //DEBUG
+                    break;
+                }
+                b = Math.Min(b, bestEval);
+
             }
             return bestEval;
         }
@@ -92,12 +140,13 @@ public class MyBot : IChessBot
 
     int Eval(Board board)
     {
+        positionsEvaluated++; //DEBUG
         if (board.IsDraw()) return 0;
         
         if (board.IsInCheckmate())
         {
-            if (board.IsWhiteToMove) return -100000;
-            else return 100000;
+            if (board.IsWhiteToMove) return Int16.MinValue;
+            else return Int16.MaxValue;
         }
 
         int eval = 0;

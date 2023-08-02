@@ -8,47 +8,113 @@ namespace ChessChallenge.Example
     public class EvilBot : IChessBot
     {
         // Piece values: null, pawn, knight, bishop, rook, queen, king
-        int[] pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
-
         public Move Think(Board board, Timer timer)
         {
-            Move[] allMoves = board.GetLegalMoves();
-
-            // Pick a random move to play if nothing better is found
-            Random rng = new();
-            Move moveToPlay = allMoves[rng.Next(allMoves.Length)];
-            int highestValueCapture = 0;
-
-            foreach (Move move in allMoves)
+            //Console.WriteLine(timer.MillisecondsRemaining);
+            int depth = 3;
+            if (timer.MillisecondsRemaining < 10000)
             {
-                // Always play checkmate in one
-                if (MoveIsCheckmate(board, move))
+                depth = 2;
+                if (timer.MillisecondsRemaining < 1000)
                 {
-                    moveToPlay = move;
-                    break;
-                }
-
-                // Find highest value capture
-                Piece capturedPiece = board.GetPiece(move.TargetSquare);
-                int capturedPieceValue = pieceValues[(int)capturedPiece.PieceType];
-
-                if (capturedPieceValue > highestValueCapture)
-                {
-                    moveToPlay = move;
-                    highestValueCapture = capturedPieceValue;
+                    depth = 1;
                 }
             }
 
-            return moveToPlay;
+            Move[] allMoves = board.GetLegalMoves();
+            Move bestMove = allMoves[0];
+            int bestEval = 0;
+
+            if (board.IsWhiteToMove)
+            {
+                bestEval = -100000;
+                foreach (Move move in allMoves)
+                {
+                    board.MakeMove(move);
+                    if (MinMax(board, depth) > bestEval)
+                    {
+                        bestMove = move;
+                        bestEval = Eval(board);
+                    }
+                    board.UndoMove(move);
+                }
+            }
+            else
+            {
+                bestEval = 100000;
+                foreach (Move move in allMoves)
+                {
+                    board.MakeMove(move);
+                    if (MinMax(board, depth) < bestEval)
+                    {
+                        bestMove = move;
+                        bestEval = Eval(board);
+                    }
+                    board.UndoMove(move);
+                }
+            }
+            return bestMove;
         }
 
-        // Test if this move gives checkmate
-        bool MoveIsCheckmate(Board board, Move move)
+        int MinMax(Board board, int depth)
         {
-            board.MakeMove(move);
-            bool isMate = board.IsInCheckmate();
-            board.UndoMove(move);
-            return isMate;
+            if(depth == 0 || board.IsInCheckmate())
+            {
+                return Eval(board);
+            }
+
+            if (board.IsWhiteToMove)
+            {
+                int bestEval = -100000;
+                Move[] allMoves = board.GetLegalMoves();
+
+                foreach (Move move in allMoves)
+                {
+                    board.MakeMove(move);
+                    bestEval = Math.Max(MinMax(board, depth - 1), bestEval);
+                    board.UndoMove(move);
+                }
+                return bestEval;
+            }
+            else
+            {
+                int bestEval = 100000;
+                Move[] allMoves = board.GetLegalMoves();
+
+                foreach (Move move in allMoves)
+                {
+                    board.MakeMove(move);
+                    bestEval = Math.Min(MinMax(board, depth - 1), bestEval);
+                    board.UndoMove(move);
+                }
+                return bestEval;
+            }
+        }
+
+        int Eval(Board board)
+        {
+            if (board.IsDraw()) return 0;
+            
+            if (board.IsInCheckmate())
+            {
+                if (board.IsWhiteToMove) return -100000;
+                else return 100000;
+            }
+
+            int eval = 0;
+
+            eval += 100 * board.GetPieceList(PieceType.Pawn, true).Count;
+            eval -= 100 * board.GetPieceList(PieceType.Pawn, false).Count;
+            eval += 300 * board.GetPieceList(PieceType.Knight, true).Count;
+            eval -= 300 * board.GetPieceList(PieceType.Knight, false).Count;
+            eval += 300 * board.GetPieceList(PieceType.Bishop, true).Count;
+            eval -= 300 * board.GetPieceList(PieceType.Bishop, false).Count;
+            eval += 500 * board.GetPieceList(PieceType.Rook, true).Count;
+            eval -= 500 * board.GetPieceList(PieceType.Rook, false).Count;
+            eval += 900 * board.GetPieceList(PieceType.Queen, true).Count;
+            eval -= 900 * board.GetPieceList(PieceType.Queen, false).Count;
+
+            return eval;
         }
     }
 }
