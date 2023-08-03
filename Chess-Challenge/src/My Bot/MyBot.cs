@@ -81,11 +81,23 @@ public class MyBot : IChessBot
 
     int MinMax(Board board, double depth, int a, int b)
     {
+        if (board.IsDraw()) 
+            return 0;
+
+        if (board.IsInCheckmate())
+        {
+            if (board.IsWhiteToMove) 
+                return Int16.MinValue;
+            else 
+                return Int16.MaxValue;
+        }
         int eval = Eval(board);
-        if(depth <= 0 || board.IsInCheckmate())
+
+        if(depth <= 0)
         {
             return eval;
         }
+
         if (eval - currentEval >= clearlyWinningDifference)
         {
             //branchesPruned++; //DEBUG
@@ -143,16 +155,6 @@ public class MyBot : IChessBot
     int Eval(Board board)
     {
         //positionsEvaluated++; //DEBUG
-        if (board.IsDraw()) 
-            return 0;
-
-        if (board.IsInCheckmate())
-        {
-            if (board.IsWhiteToMove) 
-                return Int16.MinValue;
-            else 
-                return Int16.MaxValue;
-        }
 
         return countMaterialOfColour(board, true) - countMaterialOfColour(board, false);
     }
