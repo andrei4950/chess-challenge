@@ -109,11 +109,18 @@ public class MyBot : IChessBot
             return Int32.MinValue;
         }
 
+        Move[] allMoves = board.GetLegalMoves();
+
+        //sort start
+        int[] moveOrderKeys = new int[allMoves.Length];
+        for (int i = 0; i < allMoves.Length; i++)
+            moveOrderKeys[i] = GetMoveScore(board, allMoves[i]);
+        Array.Sort(moveOrderKeys, allMoves);
+        //sort end
+
         if (board.IsWhiteToMove)
         {
             int bestEval = Int16.MinValue;
-            Move[] allMoves = board.GetLegalMoves();
-
             foreach (Move move in allMoves)
             {
                 board.MakeMove(move);
@@ -132,8 +139,6 @@ public class MyBot : IChessBot
         else
         {
             int bestEval = Int16.MaxValue;
-            Move[] allMoves = board.GetLegalMoves();
-
             foreach (Move move in allMoves)
             {
                 board.MakeMove(move);
@@ -156,10 +161,10 @@ public class MyBot : IChessBot
     {
         //positionsEvaluated++; //DEBUG
 
-        return countMaterialOfColour(board, true) - countMaterialOfColour(board, false);
+        return CountMaterialOfColour(board, true) - CountMaterialOfColour(board, false);
     }
 
-    int countMaterialOfColour(Board board, bool colour)
+    int CountMaterialOfColour(Board board, bool colour)
     {
         PieceList pawns = board.GetPieceList(PieceType.Pawn, colour);
         int eval = 100 * pawns.Count;
@@ -185,5 +190,40 @@ public class MyBot : IChessBot
             eval += whiteKnightDesiredPositions[pawns.GetPiece(i).Square.Index];
         }
         return eval;
+    }
+
+    bool IsCheck(Board board, Move move) // 27 tokens
+    {
+        board.MakeMove(move);
+        bool isCheck = board.IsInCheck();
+        board.UndoMove(move);
+        return isCheck;
+    }
+
+    int GetMoveScore(Board board, Move move)
+    {
+        int score = GetPieceValue(move.MovePieceType) - 2 * GetPieceValue(move.CapturePieceType) - 3 * GetPieceValue(move.PromotionPieceType);
+        if (IsCheck(board, move))
+        {
+            score -= 80;
+        }
+        if (board.SquareIsAttackedByOpponent(move.TargetSquare))
+        {
+            score += 40;
+        }
+        return score;
+    }
+
+    int GetPieceValue(PieceType piece)
+    {
+        switch (piece)
+        {
+            case PieceType.Pawn: return 100;
+            case PieceType.Knight: return 300;
+            case PieceType.Bishop: return 300;
+            case PieceType.Rook: return 500;
+            case PieceType.Queen: return 900;
+        }
+        return 0;
     }
 }
