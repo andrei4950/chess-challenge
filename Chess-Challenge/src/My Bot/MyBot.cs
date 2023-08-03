@@ -21,8 +21,8 @@ public class MyBot : IChessBot
 
     int[] whiteKnightDesiredPositions = {   0, 0, 0, 0, 0, 0, 0, 0, 
                                             0, 0, 0, 5, 5, 0, 0, 0, 
-                                            0, 5, 20, 20, 20, 22, 5, 0, 
                                             0, 5, 20, 20, 20, 20, 5, 0, 
+                                            0, 10, 20, 20, 20, 20, 10, 0, 
                                             0, 10, 20, 20, 20, 20, 10, 0, 
                                             0, 5, 20, 20, 20, 20, 5, 0, 
                                             0, 0, 0, 5, 5, 0, 0, 0, 
@@ -47,44 +47,30 @@ public class MyBot : IChessBot
         Move[] allMoves = board.GetLegalMoves();
         Move bestMove = allMoves[0];
         int bestEval = 0;
-
+        int colourMultiplier;
         if (board.IsWhiteToMove)
-        {
-            bestEval = Int16.MinValue;
-            foreach (Move move in allMoves)
-            {
-                int a = Int16.MinValue;
-                int b = Int16.MaxValue;
-                board.MakeMove(move);
-                int eval = MinMax(board, depth, a, b);
-                if (eval > bestEval)
-                {
-                    bestMove = move;
-                    bestEval = eval;
-                }
-                board.UndoMove(move);
-            }
-        }
+            colourMultiplier = 1;
         else
+            colourMultiplier = -1;
+
+
+        bestEval = Int16.MinValue;
+        foreach (Move move in allMoves)
         {
-            bestEval = Int16.MaxValue;
-            foreach (Move move in allMoves)
+            int a = Int16.MinValue;
+            int b = Int16.MaxValue;
+            board.MakeMove(move);
+            int eval = colourMultiplier * MinMax(board, depth, a, b);
+            if (eval > bestEval)
             {
-                int a = Int16.MinValue;
-                int b = Int16.MaxValue;
-                board.MakeMove(move);
-                int eval = MinMax(board, depth, a, b);
-                if (eval < bestEval)
-                {
-                    bestMove = move;
-                    bestEval = eval;
-                }
-                board.UndoMove(move);
+                bestMove = move;
+                bestEval = eval;
             }
+            board.UndoMove(move);
         }
         
         Console.Write("Eval: "); //DEBUG
-        Console.WriteLine(bestEval/100.0); //DEBUG
+        Console.WriteLine(bestEval/100.0 * colourMultiplier); //DEBUG
         /*Console.Write("Positions evaluated: "); //DEBUG
         Console.WriteLine(positionsEvaluated); //DEBUG
         Console.Write("Branches pruned: "); //DEBUG
@@ -168,41 +154,33 @@ public class MyBot : IChessBot
                 return Int16.MaxValue;
         }
 
-        int eval = 0;
-        PieceList whitePawns = board.GetPieceList(PieceType.Pawn, true);
-        eval += 100 * whitePawns.Count;
-        PieceList blackPawns = board.GetPieceList(PieceType.Pawn, false);
-        eval -= 100 * blackPawns.Count;
-        PieceList whiteKnights = board.GetPieceList(PieceType.Knight, true);
-        eval += 300 * whiteKnights.Count;
-        PieceList blackKnights = board.GetPieceList(PieceType.Knight, false);
-        eval -= 300 * blackKnights.Count;
-        eval += 300 * board.GetPieceList(PieceType.Bishop, true).Count;
-        eval -= 300 * board.GetPieceList(PieceType.Bishop, false).Count;
-        eval += 500 * board.GetPieceList(PieceType.Rook, true).Count;
-        eval -= 500 * board.GetPieceList(PieceType.Rook, false).Count;
-        eval += 900 * board.GetPieceList(PieceType.Queen, true).Count;
-        eval -= 900 * board.GetPieceList(PieceType.Queen, false).Count;
+        return countMaterialOfColour(board, true) - countMaterialOfColour(board, false);
+    }
+
+    int countMaterialOfColour(Board board, bool colour)
+    {
+        PieceList pawns = board.GetPieceList(PieceType.Pawn, colour);
+        int eval = 100 * pawns.Count;
+        PieceList knights = board.GetPieceList(PieceType.Knight, colour);
+        eval += 300 * knights.Count;
+        eval += 300 * board.GetPieceList(PieceType.Bishop, colour).Count;
+        eval += 500 * board.GetPieceList(PieceType.Rook, colour).Count;
+        eval += 900 * board.GetPieceList(PieceType.Queen, colour).Count;
 
         // bonusess:
         //pawns
-        for (int i = 0; i < whitePawns.Count; i++)
+        for (int i = 0; i < pawns.Count; i++)
         {
-            eval += whitePawnDesiredPositions[whitePawns.GetPiece(i).Square.Index];
-        }
-        for (int i = 0; i < blackPawns.Count; i++)
-        {
-            eval -= whitePawnDesiredPositions[63 - blackPawns.GetPiece(i).Square.Index]; // we use this tric for symmetric desired positions
+            int index = pawns.GetPiece(i).Square.Index;
+            if (!colour)
+                index = 63 - index;
+            eval += whitePawnDesiredPositions[index];
         }
 
         // knights
-        for (int i = 0; i < whiteKnights.Count; i++)
+        for (int i = 0; i < knights.Count; i++)
         {
-            eval += whiteKnightDesiredPositions[whiteKnights.GetPiece(i).Square.Index];
-        }
-        for (int i = 0; i < blackKnights.Count; i++)
-        {
-            eval -= whiteKnightDesiredPositions[63 - blackKnights.GetPiece(i).Square.Index]; // we use this tric for symmetric desired positions
+            eval += whiteKnightDesiredPositions[pawns.GetPiece(i).Square.Index];
         }
         return eval;
     }
