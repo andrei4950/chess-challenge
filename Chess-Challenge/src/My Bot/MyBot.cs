@@ -37,40 +37,15 @@ public class MyBot : IChessBot
         if (timer.MillisecondsRemaining < 20000)
         {
             depth = 2;
-            if (timer.MillisecondsRemaining < 5000)
-            {
-                depth = 1;
-            }
         }
-        currentEval = Eval(board);
+        currentEval = Eval(board) * (board.IsWhiteToMove ? 1 : -1);
 
-        Move[] allMoves = board.GetLegalMoves();
-        Move bestMove = allMoves[0];
-        int bestEval = 0;
-        int colourMultiplier;
-        if (board.IsWhiteToMove)
-            colourMultiplier = 1;
-        else
-            colourMultiplier = -1;
-
-
-        bestEval = Int16.MinValue;
-        foreach (Move move in allMoves)
-        {
-            int a = Int16.MinValue;
-            int b = Int16.MaxValue;
-            board.MakeMove(move);
-            int eval = colourMultiplier * MinMax(board, depth, a, b);
-            if (eval > bestEval)
-            {
-                bestMove = move;
-                bestEval = eval;
-            }
-            board.UndoMove(move);
-        }
+        (int bestEval, Move bestMove) = MinMax(board, depth, Int16.MinValue, Int16.MaxValue);
         
         Console.Write("Eval: "); //DEBUG
-        Console.WriteLine(bestEval/100.0 * colourMultiplier); //DEBUG
+        Console.WriteLine(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
+        Console.Write("Current eval: "); //DEBUG
+        Console.WriteLine(currentEval); //DEBUG
         /*Console.Write("Positions evaluated: "); //DEBUG
         Console.WriteLine(positionsEvaluated); //DEBUG
         Console.Write("Branches pruned: "); //DEBUG
@@ -79,25 +54,23 @@ public class MyBot : IChessBot
         return bestMove;
     }
 
-    int MinMax(Board board, double depth, int a, int b)
+    (int, Move) MinMax(Board board, double depth, int a, int b)
     {
         if (board.IsDraw()) 
-            return 0;
+            return (0, Move.NullMove);
 
         if (board.IsInCheckmate())
-        {
-            if (board.IsWhiteToMove) 
-                return Int16.MinValue;
-            else 
-                return Int16.MaxValue;
-        }
+            return (Int16.MinValue, Move.NullMove);
+            
         int eval = Eval(board);
 
         if(depth <= 0)
         {
-            return eval;
+            return (eval, Move.NullMove);
         }
 
+        int colour = board.IsWhiteToMove ? 1 : -1;
+        /*
         if (eval - currentEval >= clearlyWinningDifference)
         {
             //branchesPruned++; //DEBUG
@@ -108,8 +81,9 @@ public class MyBot : IChessBot
             //branchesPruned++; //DEBUG
             return Int32.MinValue;
         }
-
+        */
         Move[] allMoves = board.GetLegalMoves();
+        Move bestMove = allMoves[0];
 
         //sort start
         int[] moveOrderKeys = new int[allMoves.Length];
@@ -118,50 +92,31 @@ public class MyBot : IChessBot
         Array.Sort(moveOrderKeys, allMoves);
         //sort end
 
-        if (board.IsWhiteToMove)
+        foreach (Move move in allMoves)
         {
-            int bestEval = Int16.MinValue;
-            foreach (Move move in allMoves)
+            board.MakeMove(move);
+            (int bestEval, Move temp) = MinMax(board, depth - 1 + (move.IsCapture ? captureBonusDepth : 0), -b, -a);
+            bestEval = - bestEval;
+            board.UndoMove(move);
+            if (bestEval > b)
             {
-                board.MakeMove(move);
-                if (move.IsCapture) bestEval = Math.Max(MinMax(board, depth - 1 + captureBonusDepth, a, b), bestEval);
-                else bestEval = Math.Max(MinMax(board, depth - 1, a, b), bestEval);
-                board.UndoMove(move);
-                if (bestEval > b)
-                {
-                    //branchesPruned++; //DEBUG
-                    break;
-                }
-                a = Math.Max(a, bestEval);
+                //branchesPruned++; //DEBUG
+                return (b, move);
             }
-            return bestEval;
-        }
-        else
-        {
-            int bestEval = Int16.MaxValue;
-            foreach (Move move in allMoves)
+            if (bestEval > a)
             {
-                board.MakeMove(move);
-                if (move.IsCapture) bestEval = Math.Min(MinMax(board, depth - 1 + captureBonusDepth, a, b), bestEval);
-                else bestEval = Math.Min(MinMax(board, depth - 1, a, b), bestEval);
-                board.UndoMove(move);
-                if (bestEval < a)
-                {
-                    //branchesPruned++; //DEBUG
-                    break;
-                }
-                b = Math.Min(b, bestEval);
-
+                a = bestEval;
+                bestMove = move;
             }
-            return bestEval;
         }
+        return (a, bestMove);
     }
 
     int Eval(Board board)
     {
         //positionsEvaluated++; //DEBUG
 
-        return CountMaterialOfColour(board, true) - CountMaterialOfColour(board, false);
+        return CountMaterialOfColour(board, board.IsWhiteToMove) - CountMaterialOfColour(board, !board.IsWhiteToMove);
     }
 
     int CountMaterialOfColour(Board board, bool colour)
@@ -202,14 +157,14 @@ public class MyBot : IChessBot
 
     int GetMoveScore(Board board, Move move)
     {
-        int score = GetPieceValue(move.MovePieceType) - 2 * GetPieceValue(move.CapturePieceType) - 3 * GetPieceValue(move.PromotionPieceType);
+        int score = - 2 * GetPieceValue(move.CapturePieceType) - 3 * GetPieceValue(move.PromotionPieceType);
         if (IsCheck(board, move))
         {
             score -= 80;
         }
         if (board.SquareIsAttackedByOpponent(move.TargetSquare))
         {
-            score += 40;
+            score += 40 + GetPieceValue(move.MovePieceType);
         }
         return score;
     }
