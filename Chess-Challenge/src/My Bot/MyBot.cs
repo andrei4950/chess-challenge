@@ -2,9 +2,30 @@
 using System;
 using System.Collections.Generic;
 
+/*struct PositionCashe
+{
+    public int shallowEval, deepEval;
+    public Move bestMove;
+
+    public PositionCashe(int shallowEval, int deepEval, Move bestMove)
+    {
+        this.shallowEval = shallowEval;
+        this.deepEval = deepEval;
+        this.bestMove = bestMove;
+    }
+
+    public PositionCashe(int shallowEval)
+    {
+        this.shallowEval = shallowEval;
+        this.deepEval = shallowEval;
+        this.bestMove = Move.NullMove;
+    }
+}*/
+
 public class MyBot : IChessBot
 {
-    Dictionary <ulong, (int, Move)> transpositionTable = new Dictionary<ulong, (int, Move)>();
+    Dictionary <ulong, int> shallowTranspositionTable = new();
+    Dictionary <ulong, int> deepTranspositionTable = new();
     private const int clearlyWinningDifference = 1100; 
 
     private const double captureBonusDepth = 0.4;
@@ -91,7 +112,7 @@ public class MyBot : IChessBot
             board.UndoMove(move);
             if (bestEval > b)
             {
-                transpositionTable[board.ZobristKey] = (transpositionTable[board.ZobristKey].Item1, move);
+                deepTranspositionTable[board.ZobristKey] = b * (board.IsWhiteToMove ? 1 : -1);
                 return (b, move);
             }
             if (bestEval > a)
@@ -100,18 +121,19 @@ public class MyBot : IChessBot
                 bestMove = move;
             }
         }
-        transpositionTable[board.ZobristKey] = (transpositionTable[board.ZobristKey].Item1, bestMove);
+        deepTranspositionTable[board.ZobristKey] = a * (board.IsWhiteToMove ? 1 : -1);
         return (a, bestMove);
     }
 
     public int Eval(Board board, bool colour)
     {
-        if(transpositionTable.TryGetValue(board.ZobristKey, out var value))
+        if(shallowTranspositionTable.TryGetValue(board.ZobristKey, out var value))
         {
-            return value.Item1 * (colour ? 1 : -1);
+            return value * (colour ? 1 : -1);
         }
         int eval = CountMaterialOfColour(board, colour) - CountMaterialOfColour(board, !colour);
-        transpositionTable.Add(board.ZobristKey, (eval * (colour ? 1 : -1), Move.NullMove));
+        shallowTranspositionTable.Add(board.ZobristKey, eval * (colour ? 1 : -1));
+        deepTranspositionTable.Add(board.ZobristKey, eval * (colour ? 1 : -1));
         return eval;
     }
 
@@ -155,18 +177,20 @@ public class MyBot : IChessBot
 
     public int GetMoveScore(Board board, Move move)
     {
-        transpositionTable.TryGetValue(board.ZobristKey, out var value);
-        if (value.Item2.Equals(move))
-            return Int16.MinValue;
-        
-        int score = - 2 * _pieceValues[(int)move.CapturePieceType] - 3 * _pieceValues[(int)move.PromotionPieceType];
+        int score;
+        board.MakeMove(move);
+        if(deepTranspositionTable.TryGetValue(board.ZobristKey, out var value))
+        {
+            score = value;
+        }else
+        {
+            score = Eval(board, board.IsWhiteToMove);
+        }
+        board.UndoMove(move);
+               
         if (IsCheck(board, move))
         {
-            score -= 80;
-        }
-        if (board.SquareIsAttackedByOpponent(move.TargetSquare))
-        {
-            score += 40 + _pieceValues[(int)move.MovePieceType];
+            score -= 1;
         }
         return score;
     }
