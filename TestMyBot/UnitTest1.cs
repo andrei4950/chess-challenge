@@ -15,7 +15,7 @@ public class TestMyBot
     public void TestGetDistEvalBonus()
     {
         PieceList wrooks = endgame_pos.GetPieceList(PieceType.Rook, true);
-        int dist = bot.DistanceFromEnemyKing(endgame_pos, wrooks.GetPiece(0), false);
+        int dist = bot.DistanceFromKing(endgame_pos, wrooks.GetPiece(0), false);
         Assert.AreEqual(dist, 13, 0.01, "Distance not measured correctly");
         
         PieceList bKnights = init_pos.GetPieceList(PieceType.Knight, false);
@@ -26,8 +26,8 @@ public class TestMyBot
     [TestMethod]
     public void TestMoveScore()
     {
-        midgame_pos = Board.CreateBoardFromFEN("r1bq1rk1/pp3ppp/2n1p3/3n4/1b1P4/2N2N2/PP2BPPP/R1BQ1RK1 w - - 0 10");
-        Move[] allMoves = midgame_pos.GetLegalMoves();
+        bot = new MyBot();
+        Move[] allMoves = midgame_pos.GetLegalMoves(true);
         //sort start
         int[] moveOrderKeys = new int[allMoves.Length];
         for (int i = 0; i < allMoves.Length; i++)
@@ -37,4 +37,15 @@ public class TestMyBot
         Assert.AreEqual(allMoves[0], new Move("c3d5", midgame_pos));
         Assert.AreEqual(moveOrderKeys[0], -260);
     }
+
+    [TestMethod]
+    public void TestEval()
+    {
+        bot = new MyBot();
+        Assert.AreEqual(bot.Eval(init_pos, true), 0);
+        Assert.AreEqual(bot.Eval(midgame_pos, true), 12);
+        Assert.AreEqual(bot.Eval(endgame_pos, true), 472);
+        Assert.AreEqual(bot.Eval(midgame_pos, true), -bot.Eval(midgame_pos, false));
+    }
+
 }
