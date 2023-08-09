@@ -4,8 +4,6 @@ using System.Collections.Generic;
 
 public class MyBot : IChessBot
 {
-    //int positionsEvaluated = 0;
-    //int branchesPruned = 0;
     Dictionary <ulong, (int, Move)> transpositionTable = new Dictionary<ulong, (int, Move)>();
     private const int clearlyWinningDifference = 1100; 
 
@@ -22,30 +20,9 @@ public class MyBot : IChessBot
                                                 40, 40, 40, 40, 40, 40, 40, 40,
                                                 40, 40, 40, 40, 40, 40, 40, 40};
 
-   /* int[] whiteKnightDesiredPositions = {   0, 0, 0, 0, 0, 0, 0, 0, 
-                                            0, 0, 0, 5, 5, 0, 0, 0, 
-                                            0, 5, 20, 20, 20, 20, 5, 0, 
-                                            0, 10, 20, 20, 20, 20, 10, 0, 
-                                            0, 10, 20, 20, 20, 20, 10, 0, 
-                                            0, 5, 20, 20, 20, 20, 5, 0, 
-                                            0, 0, 0, 5, 5, 0, 0, 0, 
-                                            0, 0, 0, 0, 0, 0, 0, 0};
-    
-    int[] whiteBishopDesiredPositions = {   -3, -3, -5, -5, -5, -5, -3, -3, 
-                                            -3, 3, -3, -2, -2, -3, 3, -3, 
-                                            0, 0, 0, 0, 0, 0, 0, 0, 
-                                            0, 0, 3, 0, 0, 3, 0, 0, 
-                                            0, 3, 0, 0, 0, 0, 3, 0, 
-                                            0, 0, 0, 0, 0, 0, 0, 0, 
-                                            0, 0, 0, 0, 0, 0, 0, 0, 
-                                            0, 0, 0, 0, 0, 0, 0, 0};
-
-    int[] kingDesiredFile = {2, 15, 30, 0, 15, 0, 30, 2};
-    int[] rookOpeningDesiredFile = {0, 0, 5, 10, 10, 10, 0, 0};*/
-
     public Move Think(Board board, Timer timer)
     {
-        currentEval = Eval(board, true, board.ZobristKey);
+        currentEval = Eval(board, true);
 
         isEndgame = CountMaterialOfColour(board, true) + CountMaterialOfColour(board, false) < 2800;
         float depth = 1;
@@ -67,7 +44,7 @@ public class MyBot : IChessBot
             depth++;
         }
         while((initTime - endTime) * 400 < endTime && depth < 20);
-        //while(true);
+        //while(true); //DEBUG
         return bestMove;
     }
 
@@ -80,7 +57,7 @@ public class MyBot : IChessBot
         if (board.IsInCheckmate())
             return (Int16.MinValue, Move.NullMove);
             
-        int eval = Eval(board, board.IsWhiteToMove, board.ZobristKey);
+        int eval = Eval(board, board.IsWhiteToMove);
 
         // or if we reached depth limit
         if(depth <= 0)
@@ -127,28 +104,14 @@ public class MyBot : IChessBot
         return (a, bestMove);
     }
 
-    public int Eval(Board board, bool colour, ulong zorbistKey)
+    public int Eval(Board board, bool colour)
     {
-        if(transpositionTable.TryGetValue(zorbistKey, out var value))
+        if(transpositionTable.TryGetValue(board.ZobristKey, out var value))
         {
-            return value.Item1;
+            return value.Item1 * (colour ? 1 : -1);
         }
-        int eval = 0;
-        /* kings
-        if(!isEndgame)
-        {
-            if (board.GetKingSquare(true).Rank == 0)
-            {
-                eval += kingDesiredFile[board.GetKingSquare(true).File];
-            }
-            if (board.GetKingSquare(false).Rank == 7)
-            {
-                eval -= kingDesiredFile[board.GetKingSquare(false).File];
-            }
-        }
-        eval *= (colour ? 1 : -1);*/
-        eval += CountMaterialOfColour(board, colour) - CountMaterialOfColour(board, !colour);
-        transpositionTable.Add(zorbistKey, (eval, Move.NullMove));
+        int eval = CountMaterialOfColour(board, colour) - CountMaterialOfColour(board, !colour);
+        transpositionTable.Add(board.ZobristKey, (eval * (colour ? 1 : -1), Move.NullMove));
         return eval;
     }
 
@@ -179,7 +142,6 @@ public class MyBot : IChessBot
         eval += GetDistEvalBonus(board, bishops);
         eval += GetDistEvalBonus(board, rooks);
         eval += GetDistEvalBonus(board, queens);
-        eval += GetDistEvalBonus(board, board.GetPieceList(PieceType.King, colour));
         return eval;
     }
 
@@ -215,11 +177,15 @@ public class MyBot : IChessBot
         int bonus = 0;
         for (int i = 0; i < pieceList.Count; i++)
         {
-            bonus -= DistanceFromEnemyKing(board, pieceList.GetPiece(i), !pieceList.IsWhitePieceList);
+            bonus -= DistanceFromKing(board, pieceList.GetPiece(i), !pieceList.IsWhitePieceList) * 2;
+            if (board.PlyCount > 30)
+            {
+                bonus -= DistanceFromKing(board, pieceList.GetPiece(i), pieceList.IsWhitePieceList);
+            }
         }
-        return bonus * 2;
+        return bonus;
     }
-    public int DistanceFromEnemyKing(Board board, Piece piece, bool kingColour)
+    public int DistanceFromKing(Board board, Piece piece, bool kingColour)
     {
         return Math.Abs(board.GetKingSquare(kingColour).File - piece.Square.File) + Math.Abs(board.GetKingSquare(kingColour).Rank - piece.Square.Rank);
     }
