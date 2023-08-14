@@ -73,16 +73,17 @@ public class MyBot : IChessBot
         }
         
         //get available moves
-        //Move[] allMoves = board.GetLegalMoves();
+        // Move[] allMoves = board.GetLegalMoves();
         System.Span<Move> allMoves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref allMoves);
         Move bestMove = allMoves[0];
 
         //sort start
-        //int[] moveOrderKeys = new int[allMoves.Length];
+        // int[] moveOrderKeys = new int[allMoves.Length];
         System.Span<int> moveOrderKeys = stackalloc int[allMoves.Length];
         for (int i = 0; i < allMoves.Length; i++)
             moveOrderKeys[i] = GetMoveScore(board, allMoves[i]);
+        // Array.Sort(moveOrderKeys, allMoves);
         MemoryExtensions.Sort(moveOrderKeys, allMoves);
         //sort end
 

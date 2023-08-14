@@ -2,6 +2,8 @@ namespace TestMyBot;
 using ChessChallenge.API;
 
 
+
+
 [TestClass]
 public class TestMyBot
 {
@@ -48,4 +50,12 @@ public class TestMyBot
         Assert.AreEqual(bot.Eval(midgame_pos, true), -bot.Eval(midgame_pos, false));
     }
 
+    [TestMethod]
+    public void TestMoveAlloc()
+    {
+        System.Span<Move> mySpan = stackalloc Move[128];
+        System.Span<Move> slicedSpan = mySpan.Slice(0, 32);
+        Assert.AreEqual(mySpan.Length, 128);
+        Assert.AreEqual(slicedSpan.Length, 32);        
+    }
 }
