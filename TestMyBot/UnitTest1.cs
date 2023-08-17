@@ -44,10 +44,9 @@ public class TestMyBot
     public void TestEval()
     {
         bot = new MyBot();
-        Assert.AreEqual(bot.Eval(init_pos, true), 0);
-        Assert.AreEqual(bot.Eval(midgame_pos, true), 12);
-        Assert.AreEqual(bot.Eval(endgame_pos, true), 472);
-        Assert.AreEqual(bot.Eval(midgame_pos, true), -bot.Eval(midgame_pos, false));
+        Assert.AreEqual(bot.Eval(init_pos), 0);
+        Assert.AreEqual(bot.Eval(midgame_pos), 12);
+        Assert.AreEqual(bot.Eval(endgame_pos), 472);
     }
 
     [TestMethod]
