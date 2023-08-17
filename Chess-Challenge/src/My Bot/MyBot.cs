@@ -52,6 +52,7 @@ public class MyBot : IChessBot
         Console.Write(initTime - endTime); //DEBUG
         Console.Write(" at depth "); //DEBUG
         Console.WriteLine(depth); //DEBUG
+        Console.WriteLine(MoveLineString(board)); //DEBUG
         return bestMove;
     }
 
@@ -198,5 +199,49 @@ public class MyBot : IChessBot
     public int DistanceFromKing(Board board, Piece piece, bool kingColour)
     {
         return Math.Abs(board.GetKingSquare(kingColour).File - piece.Square.File) + Math.Abs(board.GetKingSquare(kingColour).Rank - piece.Square.Rank);
+    }
+
+
+    // 176 tokens for GetMoveLine and MoveLineString
+    Move[] GetMoveLine(Board startingBoard)
+    {
+        Board board = Board.CreateBoardFromFEN(startingBoard.GetFenString()); // make a copy of the board (we do not undo moves)
+        Move[] moveLine = new Move[50];
+        for(int j = 0; j < moveLine.Length; j++)
+        {
+            int bestScore = Int16.MaxValue;
+            int index = -1;
+            Move[] moves = board.GetLegalMoves();
+            for(int i = 0; i < moves.Length; i++)
+            {
+                if(moveScoreTable.TryGetValue(board.ZobristKey + moves[i].RawValue, out int score))
+                {
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        index = i;
+                    }
+                }
+            }
+            if (index == -1)
+            {
+                Array.Resize(ref moveLine, j);
+                break;
+            }
+            Move bestMove = moves[index];
+            moveLine[j] = bestMove;
+            board.MakeMove(bestMove);
+        }
+        return moveLine;
+    }
+
+    string MoveLineString(Board startingBoard)
+    {
+        string myString = "";
+        foreach(Move move in GetMoveLine(startingBoard))
+        {
+            myString += move.ToString().Split(' ')[1] + ' ';
+        }
+        return myString;
     }
 }
