@@ -9,7 +9,6 @@ public class MyBot : IChessBot
     private const int clearlyWinningDifference = 1100; 
     int nodes = 0; //DEBUG
 
-    private const double captureBonusDepth = 0.4;
     private int currentEval = 0;
     private bool isEndgame;
 
@@ -68,11 +67,8 @@ public class MyBot : IChessBot
             
         int shallowEval = Eval(board);
 
-        // or if we reached depth limit
-        if(depth <= 0)
-        {
+        if(depth <= -6)
             return (shallowEval, Move.NullMove);
-        }
 
         // do not go deeper if we know we are winning/losing
         int absEval = shallowEval * (board.IsWhiteToMove ? 1 : -1);
@@ -84,7 +80,10 @@ public class MyBot : IChessBot
         //get available moves
         // Move[] allMoves = board.GetLegalMoves();
         System.Span<Move> allMoves = stackalloc Move[128];
-        board.GetLegalMovesNonAlloc(ref allMoves);
+        board.GetLegalMovesNonAlloc(ref allMoves, depth <= 0);
+        if (allMoves.Length == 0)
+            return (shallowEval, Move.NullMove);
+
         Move bestMove = allMoves[0];
 
         //sort start
@@ -101,7 +100,7 @@ public class MyBot : IChessBot
         foreach (Move move in allMoves)
         {
             board.MakeMove(move);
-            (int eval, Move temp) = MiniMax(board, depth - 1+ (move.IsCapture ? captureBonusDepth : 0), -b, -a);
+            (int eval, Move temp) = MiniMax(board, depth - 1, -b, -a);
             board.UndoMove(move);
             moveScoreTable[move.RawValue + board.ZobristKey] = eval;
             eval = - eval - 1;
