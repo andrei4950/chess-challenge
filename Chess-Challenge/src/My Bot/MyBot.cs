@@ -2,31 +2,12 @@
 using System;
 using System.Collections.Generic;
 
-/*struct PositionCashe
-{
-    public int shallowEval, deepEval;
-    public Move bestMove;
-
-    public PositionCashe(int shallowEval, int deepEval, Move bestMove)
-    {
-        this.shallowEval = shallowEval;
-        this.deepEval = deepEval;
-        this.bestMove = bestMove;
-    }
-
-    public PositionCashe(int shallowEval)
-    {
-        this.shallowEval = shallowEval;
-        this.deepEval = shallowEval;
-        this.bestMove = Move.NullMove;
-    }
-}*/
-
 public class MyBot : IChessBot
 {
-    Dictionary <ulong, int> shallowTranspositionTable = new();
-    Dictionary <ulong, int> deepTranspositionTable = new();
+    Dictionary <ulong, int> transpositionTable = new();
+    Dictionary <ulong, int> moveScoreTable = new();
     private const int clearlyWinningDifference = 1100; 
+    int nodes = 0; //DEBUG
 
     private const double captureBonusDepth = 0.4;
     private int currentEval = 0;
@@ -43,34 +24,40 @@ public class MyBot : IChessBot
 
     public Move Think(Board board, Timer timer)
     {
-        currentEval = Eval(board, true);
+        currentEval = Eval(board) * (board.IsWhiteToMove ? 1 : -1);
 
         isEndgame = CountMaterialOfColour(board, true) + CountMaterialOfColour(board, false) < 2800;
-        float depth = 1;
+        float depth = 0;
         Move bestMove;
-        int initTime, endTime;
+        int initTime, endTime, bestEval;
 
         do
         {
-            initTime = timer.MillisecondsRemaining;
-            (int bestEval, bestMove) = MinMax(board, depth, Int16.MinValue, Int16.MaxValue);
-            endTime = timer.MillisecondsRemaining;
-
-            Console.Write("Eval: "); //DEBUG
-            Console.WriteLine(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
-            Console.Write("time elapsed: "); //DEBUG
-            Console.Write(initTime - endTime); //DEBUG
-            Console.Write(" at depth "); //DEBUG
-            Console.WriteLine(depth); //DEBUG
             depth++;
+            nodes = 0;
+            initTime = timer.MillisecondsRemaining;
+            (bestEval, bestMove) = MiniMax(board, depth, Int16.MinValue, Int16.MaxValue, true);
+            endTime = timer.MillisecondsRemaining;
         }
         while((initTime - endTime) * 400 < endTime && depth < 20);
-        //while(true); //DEBUG
+        //while(depth < 4); //DEBUG
+
+        Console.Write(bestMove.ToString()); //DEBUG
+        Console.Write(board.GetFenString()); //DEBUG
+        Console.Write("Eval: "); //DEBUG
+        Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
+        Console.Write(" nodes visited:  "); //DEBUG
+        Console.Write(nodes); //DEBUG
+        Console.Write(" time elapsed: "); //DEBUG
+        Console.Write(initTime - endTime); //DEBUG
+        Console.Write(" at depth "); //DEBUG
+        Console.WriteLine(depth); //DEBUG
         return bestMove;
     }
 
-    public (int, Move) MinMax(Board board, double depth, int a, int b)
+    public (int, Move) MiniMax(Board board, double depth, int a, int b, bool firstCall = false)
     {
+        nodes++; //DEBUG
         // Check if node is final node
         if (board.IsDraw()) 
             return (0, Move.NullMove);
@@ -78,19 +65,19 @@ public class MyBot : IChessBot
         if (board.IsInCheckmate())
             return (Int16.MinValue, Move.NullMove);
             
-        int eval = Eval(board, board.IsWhiteToMove);
+        int shallowEval = Eval(board);
 
         // or if we reached depth limit
         if(depth <= 0)
         {
-            return (eval, Move.NullMove);
+            return (shallowEval, Move.NullMove);
         }
 
         // do not go deeper if we know we are winning/losing
-        int absEval = eval * (board.IsWhiteToMove ? 1 : -1);
-        if (absEval - currentEval >= clearlyWinningDifference || absEval - currentEval <= -clearlyWinningDifference)
+        int absEval = shallowEval * (board.IsWhiteToMove ? 1 : -1);
+        if (!firstCall && (absEval - currentEval >= clearlyWinningDifference || absEval - currentEval <= -clearlyWinningDifference))
         {
-            return (eval, Move.NullMove);
+            return (shallowEval, Move.NullMove);
         }
         
         //get available moves
@@ -104,36 +91,43 @@ public class MyBot : IChessBot
         Array.Sort(moveOrderKeys, allMoves);
         //sort end
 
+        int bestEval = Int16.MinValue;
+
         foreach (Move move in allMoves)
         {
             board.MakeMove(move);
-            (int bestEval, Move temp) = MinMax(board, depth - 1 + (move.IsCapture ? captureBonusDepth : 0), -b, -a);
-            bestEval = - bestEval;
+            (int eval, Move temp) = MiniMax(board, depth - 1+ (move.IsCapture ? captureBonusDepth : 0), -b, -a);
             board.UndoMove(move);
-            if (bestEval > b)
+            moveScoreTable[move.RawValue + board.ZobristKey] = eval;
+            eval = - eval - 1;
+            if (eval > b)
             {
-                deepTranspositionTable[board.ZobristKey] = b * (board.IsWhiteToMove ? 1 : -1);
-                return (b, move);
+                transpositionTable[board.ZobristKey] = eval;
+                return (eval, move);
             }
-            if (bestEval > a)
+            if(eval > bestEval)
             {
-                a = bestEval;
+                bestEval = eval;
                 bestMove = move;
+                if (eval > a)
+                {
+                    a = eval;
+                }
             }
         }
-        deepTranspositionTable[board.ZobristKey] = a * (board.IsWhiteToMove ? 1 : -1);
-        return (a, bestMove);
+        transpositionTable[board.ZobristKey] = bestEval;
+        return (bestEval, bestMove);
     }
 
-    public int Eval(Board board, bool colour)
+    public int Eval(Board board)
     {
-        if(shallowTranspositionTable.TryGetValue(board.ZobristKey, out var value))
+        if(transpositionTable.TryGetValue(board.ZobristKey, out var value))
         {
-            return value * (colour ? 1 : -1);
+            return value;
         }
-        int eval = CountMaterialOfColour(board, colour) - CountMaterialOfColour(board, !colour);
-        shallowTranspositionTable.Add(board.ZobristKey, eval * (colour ? 1 : -1));
-        deepTranspositionTable.Add(board.ZobristKey, eval * (colour ? 1 : -1));
+        int eval = CountMaterialOfColour(board, board.IsWhiteToMove) - CountMaterialOfColour(board, !board.IsWhiteToMove);
+        eval -= board.IsInCheck() ? 1 : 0;
+        transpositionTable.Add(board.ZobristKey, eval);
         return eval;
     }
 
@@ -167,32 +161,20 @@ public class MyBot : IChessBot
         return eval;
     }
 
-    public bool IsCheck(Board board, Move move) // 27 tokens
-    {
-        board.MakeMove(move);
-        bool isCheck = board.IsInCheck();
-        board.UndoMove(move);
-        return isCheck;
-    }
-
     public int GetMoveScore(Board board, Move move)
     {
-        int score;
-        board.MakeMove(move);
-        if(deepTranspositionTable.TryGetValue(board.ZobristKey, out var value))
+        if(moveScoreTable.TryGetValue(move.RawValue + board.ZobristKey, out var value))
         {
-            score = value;
-        }else
-        {
-            score = Eval(board, board.IsWhiteToMove);
+            return value;
         }
-        board.UndoMove(move);
-               
-        if (IsCheck(board, move))
+        else
         {
-            score -= 1;
+            board.MakeMove(move);
+            int score = Eval(board);
+            board.UndoMove(move);
+            moveScoreTable[move.RawValue + board.ZobristKey] = score;
+            return score;
         }
-        return score;
     }
     public readonly int[] _pieceValues = {0, 100, 300, 300, 500, 900, 0};
 
