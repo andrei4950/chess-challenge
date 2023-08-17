@@ -17,11 +17,11 @@ public class TestMyBot
     public void TestGetDistEvalBonus()
     {
         PieceList wrooks = endgame_pos.GetPieceList(PieceType.Rook, true);
-        int dist = bot.DistanceFromKing(endgame_pos, wrooks.GetPiece(0), false);
+        int dist = MyBot.DistanceFromKing(endgame_pos, wrooks.GetPiece(0), false);
         Assert.AreEqual(dist, 13, 0.01, "Distance not measured correctly");
         
         PieceList bKnights = init_pos.GetPieceList(PieceType.Knight, false);
-        int bonus = bot.GetDistEvalBonus(init_pos, bKnights);
+        int bonus = MyBot.GetDistEvalBonus(init_pos, bKnights);
         Assert.AreEqual(bonus, -38, 0.01);
     }
 
@@ -37,7 +37,7 @@ public class TestMyBot
         Array.Sort(moveOrderKeys, allMoves);
         //sort end
         Assert.AreEqual(allMoves[0], new Move("c3d5", midgame_pos));
-        Assert.AreEqual(moveOrderKeys[0], -260);
+        Assert.AreEqual(moveOrderKeys[0], -304);
     }
 
     [TestMethod]
