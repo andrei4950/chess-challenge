@@ -13,7 +13,7 @@ public class MyBot : IChessBot
     private int currentEval = 0;
     private bool isEndgame;
 
-    private int[] whitePawnDesiredPositions = { 0, 0, 0, 0, 0, 0, 0, 0, 
+    private readonly int[] whitePawnDesiredPositions = { 0, 0, 0, 0, 0, 0, 0, 0, 
                                                 10, 10, 10, 0, 0, 10, 10, 10,
                                                 0, 5, 0, 11, 11, 0, 5, 0,
                                                 0, 0, 0, 21, 21, 0, 0, 0,
@@ -181,9 +181,8 @@ public class MyBot : IChessBot
             return score;
         }
     }
-    public readonly int[] _pieceValues = {0, 100, 300, 300, 500, 900, 0};
-
-    public int GetDistEvalBonus(Board board, PieceList pieceList)
+    
+    public static int GetDistEvalBonus(Board board, PieceList pieceList)
     {
         int bonus = 0;
         for (int i = 0; i < pieceList.Count; i++)
@@ -196,7 +195,7 @@ public class MyBot : IChessBot
         }
         return bonus;
     }
-    public int DistanceFromKing(Board board, Piece piece, bool kingColour)
+    public static int DistanceFromKing(Board board, Piece piece, bool kingColour)
     {
         return Math.Abs(board.GetKingSquare(kingColour).File - piece.Square.File) + Math.Abs(board.GetKingSquare(kingColour).Rank - piece.Square.Rank);
     }
