@@ -9,13 +9,16 @@ using System;
 
     public class EvilBot : IChessBot
     {
+    Dictionary <ulong, int> transpositionTable = new();
+    Dictionary <ulong, int> moveScoreTable = new();
     private const int clearlyWinningDifference = 1100; 
+    int nodes = 0; //DEBUG
 
     private const double captureBonusDepth = 0.4;
     private int currentEval = 0;
     private bool isEndgame;
 
-    private int[] whitePawnDesiredPositions = { 0, 0, 0, 0, 0, 0, 0, 0, 
+    private readonly int[] whitePawnDesiredPositions = { 0, 0, 0, 0, 0, 0, 0, 0, 
                                                 10, 10, 10, 0, 0, 10, 10, 10,
                                                 0, 5, 0, 11, 11, 0, 5, 0,
                                                 0, 0, 0, 21, 21, 0, 0, 0,
@@ -26,30 +29,41 @@ using System;
 
     public Move Think(Board board, Timer timer)
     {
-        currentEval = Eval(board, true);
+        currentEval = Eval(board) * (board.IsWhiteToMove ? 1 : -1);
 
         isEndgame = CountMaterialOfColour(board, true) + CountMaterialOfColour(board, false) < 2800;
-        float depth = 1;
+        float depth = 0;
         Move bestMove;
-        int initTime, endTime;
+        int initTime, endTime, bestEval;
 
         do
         {
-            initTime = timer.MillisecondsRemaining;
-            (int bestEval, bestMove) = MinMax(board, depth, Int16.MinValue, Int16.MaxValue);
-            endTime = timer.MillisecondsRemaining;
             depth++;
+            nodes = 0;
+            initTime = timer.MillisecondsRemaining;
+            (bestEval, bestMove) = MiniMax(board, depth, Int16.MinValue, Int16.MaxValue, true);
+            endTime = timer.MillisecondsRemaining;
         }
-        while((initTime - endTime) * 400 < endTime && depth < 20);
-        //while(true); //DEBUG
+        while((initTime - endTime) * 200 < endTime && depth < 20);
+        //while(depth < 4); //DEBUG
+
         Console.Write(bestMove.ToString()); //DEBUG
+        Console.Write(board.GetFenString()); //DEBUG
+        Console.Write("Eval: "); //DEBUG
+        Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
+        Console.Write(" nodes visited:  "); //DEBUG
+        Console.Write(nodes); //DEBUG
+        Console.Write(" time elapsed: "); //DEBUG
+        Console.Write(initTime - endTime); //DEBUG
         Console.Write(" at depth "); //DEBUG
         Console.WriteLine(depth); //DEBUG
+        Console.WriteLine(MoveLineString(board)); //DEBUG
         return bestMove;
     }
 
-    public (int, Move) MinMax(Board board, double depth, int a, int b)
+    public (int, Move) MiniMax(Board board, double depth, int a, int b, bool firstCall = false)
     {
+        nodes++; //DEBUG
         // Check if node is final node
         if (board.IsDraw()) 
             return (0, Move.NullMove);
@@ -57,54 +71,74 @@ using System;
         if (board.IsInCheckmate())
             return (Int16.MinValue, Move.NullMove);
             
-        int eval = Eval(board, board.IsWhiteToMove);
+        int shallowEval = Eval(board);
 
         // or if we reached depth limit
         if(depth <= 0)
         {
-            return (eval, Move.NullMove);
+            return (shallowEval, Move.NullMove);
         }
 
         // do not go deeper if we know we are winning/losing
-        int absEval = eval * (board.IsWhiteToMove ? 1 : -1);
-        if (absEval - currentEval >= clearlyWinningDifference || absEval - currentEval <= -clearlyWinningDifference)
+        int absEval = shallowEval * (board.IsWhiteToMove ? 1 : -1);
+        if (!firstCall && (absEval - currentEval >= clearlyWinningDifference || absEval - currentEval <= -clearlyWinningDifference))
         {
-            return (eval, Move.NullMove);
+            return (shallowEval, Move.NullMove);
         }
         
         //get available moves
-        Move[] allMoves = board.GetLegalMoves();
+        // Move[] allMoves = board.GetLegalMoves();
+        System.Span<Move> allMoves = stackalloc Move[128];
+        board.GetLegalMovesNonAlloc(ref allMoves);
         Move bestMove = allMoves[0];
 
         //sort start
-        int[] moveOrderKeys = new int[allMoves.Length];
+        // int[] moveOrderKeys = new int[allMoves.Length];
+        System.Span<int> moveOrderKeys = stackalloc int[allMoves.Length];
         for (int i = 0; i < allMoves.Length; i++)
             moveOrderKeys[i] = GetMoveScore(board, allMoves[i]);
-        Array.Sort(moveOrderKeys, allMoves);
+        // Array.Sort(moveOrderKeys, allMoves);
+        MemoryExtensions.Sort(moveOrderKeys, allMoves);
         //sort end
+
+        int bestEval = Int16.MinValue;
 
         foreach (Move move in allMoves)
         {
             board.MakeMove(move);
-            (int bestEval, Move temp) = MinMax(board, depth - 1 + (move.IsCapture ? captureBonusDepth : 0), -b, -a);
-            bestEval = - bestEval;
+            (int eval, Move temp) = MiniMax(board, depth - 1+ (move.IsCapture ? captureBonusDepth : 0), -b, -a);
             board.UndoMove(move);
-            if (bestEval > b)
+            moveScoreTable[move.RawValue + board.ZobristKey] = eval;
+            eval = - eval - 1;
+            if (eval > b)
             {
-                return (b, move);
+                transpositionTable[board.ZobristKey] = eval;
+                return (eval, move);
             }
-            if (bestEval > a)
+            if(eval > bestEval)
             {
-                a = bestEval;
+                bestEval = eval;
                 bestMove = move;
+                if (eval > a)
+                {
+                    a = eval;
+                }
             }
         }
-        return (a, bestMove);
+        transpositionTable[board.ZobristKey] = bestEval;
+        return (bestEval, bestMove);
     }
 
-    public int Eval(Board board, bool colour)
+    public int Eval(Board board)
     {
-        return CountMaterialOfColour(board, colour) - CountMaterialOfColour(board, !colour);
+        if(transpositionTable.TryGetValue(board.ZobristKey, out var value))
+        {
+            return value;
+        }
+        int eval = CountMaterialOfColour(board, board.IsWhiteToMove) - CountMaterialOfColour(board, !board.IsWhiteToMove);
+        eval -= board.IsInCheck() ? 1 : 0;
+        transpositionTable.Add(board.ZobristKey, eval);
+        return eval;
     }
 
     public int CountMaterialOfColour(Board board, bool colour)
@@ -137,29 +171,22 @@ using System;
         return eval;
     }
 
-    public static bool IsCheck(Board board, Move move) // 27 tokens
-    {
-        board.MakeMove(move);
-        bool isCheck = board.IsInCheck();
-        board.UndoMove(move);
-        return isCheck;
-    }
-
     public int GetMoveScore(Board board, Move move)
     {
-        int score = - 2 * _pieceValues[(int)move.CapturePieceType] - 3 * _pieceValues[(int)move.PromotionPieceType];
-        if (IsCheck(board, move))
+        if(moveScoreTable.TryGetValue(move.RawValue + board.ZobristKey, out var value))
         {
-            score -= 80;
+            return value;
         }
-        if (board.SquareIsAttackedByOpponent(move.TargetSquare))
+        else
         {
-            score += 40 + _pieceValues[(int)move.MovePieceType];
+            board.MakeMove(move);
+            int score = Eval(board);
+            board.UndoMove(move);
+            moveScoreTable[move.RawValue + board.ZobristKey] = score;
+            return score;
         }
-        return score;
     }
-    public readonly int[] _pieceValues = {0, 100, 300, 300, 500, 900, 0};
-
+    
     public static int GetDistEvalBonus(Board board, PieceList pieceList)
     {
         int bonus = 0;
@@ -176,6 +203,50 @@ using System;
     public static int DistanceFromKing(Board board, Piece piece, bool kingColour)
     {
         return Math.Abs(board.GetKingSquare(kingColour).File - piece.Square.File) + Math.Abs(board.GetKingSquare(kingColour).Rank - piece.Square.Rank);
+    }
+
+
+    // 176 tokens for GetMoveLine and MoveLineString
+    Move[] GetMoveLine(Board startingBoard)
+    {
+        Board board = Board.CreateBoardFromFEN(startingBoard.GetFenString()); // make a copy of the board (we do not undo moves)
+        Move[] moveLine = new Move[50];
+        for(int j = 0; j < moveLine.Length; j++)
+        {
+            int bestScore = Int16.MaxValue;
+            int index = -1;
+            Move[] moves = board.GetLegalMoves();
+            for(int i = 0; i < moves.Length; i++)
+            {
+                if(moveScoreTable.TryGetValue(board.ZobristKey + moves[i].RawValue, out int score))
+                {
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        index = i;
+                    }
+                }
+            }
+            if (index == -1)
+            {
+                Array.Resize(ref moveLine, j);
+                break;
+            }
+            Move bestMove = moves[index];
+            moveLine[j] = bestMove;
+            board.MakeMove(bestMove);
+        }
+        return moveLine;
+    }
+
+    string MoveLineString(Board startingBoard)
+    {
+        string myString = "";
+        foreach(Move move in GetMoveLine(startingBoard))
+        {
+            myString += move.ToString().Split(' ')[1] + ' ';
+        }
+        return myString;
     }
     }
 }

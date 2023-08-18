@@ -9,7 +9,7 @@ public class MyBot : IChessBot
     private const int clearlyWinningDifference = 1100; 
     int nodes = 0; //DEBUG
 
-    private const double captureBonusDepth = 0.4;
+    private const double captureBonusDepth = 0.5;
     private int currentEval = 0;
     private bool isEndgame;
 
@@ -39,7 +39,7 @@ public class MyBot : IChessBot
             (bestEval, bestMove) = MiniMax(board, depth, Int16.MinValue, Int16.MaxValue, true);
             endTime = timer.MillisecondsRemaining;
         }
-        while((initTime - endTime) * 400 < endTime && depth < 20);
+        while((initTime - endTime) * 200 < endTime && depth < 20);
         //while(depth < 4); //DEBUG
 
         Console.Write(bestMove.ToString()); //DEBUG
