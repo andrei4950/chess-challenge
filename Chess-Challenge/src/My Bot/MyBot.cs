@@ -36,7 +36,7 @@ public class MyBot : IChessBot
             depth++;
             nodes = 0;
             initTime = timer.MillisecondsRemaining;
-            (bestEval, bestMove) = MiniMax(board, depth, Int16.MinValue, Int16.MaxValue, true);
+            (bestEval, bestMove) = MiniMax(board, depth, Int16.MinValue, Int16.MaxValue, 0, true);
             endTime = timer.MillisecondsRemaining;
         }
         while((initTime - endTime) * 200 < endTime && depth < 20);
@@ -56,7 +56,7 @@ public class MyBot : IChessBot
         return bestMove;
     }
 
-    public (int, Move) MiniMax(Board board, double depth, int a, int b, bool firstCall = false)
+    public (int, Move) MiniMax(Board board, double depth, int a, int b, int currentDepth = 0, bool firstCall = false)
     {
         nodes++; //DEBUG
         // Check if node is final node
@@ -64,7 +64,7 @@ public class MyBot : IChessBot
             return (0, Move.NullMove);
 
         if (board.IsInCheckmate())
-            return (Int16.MinValue, Move.NullMove);
+            return (Int16.MinValue + currentDepth, Move.NullMove);
             
         int shallowEval = Eval(board);
 
@@ -84,7 +84,7 @@ public class MyBot : IChessBot
         //get available moves
         // Move[] allMoves = board.GetLegalMoves();
         System.Span<Move> allMoves = stackalloc Move[128];
-        board.GetLegalMovesNonAlloc(ref allMoves);
+        board.GetLegalMovesNonAlloc(ref allMoves, );
         Move bestMove = allMoves[0];
 
         //sort start
@@ -101,10 +101,10 @@ public class MyBot : IChessBot
         foreach (Move move in allMoves)
         {
             board.MakeMove(move);
-            (int eval, Move temp) = MiniMax(board, depth - 1+ (move.IsCapture ? captureBonusDepth : 0), -b, -a);
+            (int eval, Move temp) = MiniMax(board, depth - 1+ (move.IsCapture ? captureBonusDepth : 0), -b, -a, currentDepth + 1);
             board.UndoMove(move);
             moveScoreTable[move.RawValue + board.ZobristKey] = eval;
-            eval = - eval - 1;
+            eval = - eval;
             if (eval > b)
             {
                 transpositionTable[board.ZobristKey] = eval;
