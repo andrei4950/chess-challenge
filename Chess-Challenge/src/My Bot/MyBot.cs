@@ -83,6 +83,7 @@ public class MyBot : IChessBot
         {
             return (shallowEval, Move.NullMove);
         }
+        // append null move
         Move bestMove = allMoves[0];
 
         //sort start
@@ -98,9 +99,25 @@ public class MyBot : IChessBot
 
         foreach (Move move in allMoves)
         {
-            board.MakeMove(move);
-            (int eval, Move temp) = MiniMax(board, depth - 1, -b, -a);
-            board.UndoMove(move);
+            int eval;
+            if(move != Move.NullMove)
+            {
+                board.MakeMove(move);
+                (eval, Move temp) = MiniMax(board, depth - 1, -b, -a);
+                board.UndoMove(move);
+            }
+            else
+            {
+                if(board.TrySkipTurn())
+                {
+                    (eval, Move temp) = MiniMax(board, depth - 1, -b, -a);
+                    board.UndoSkipTurn();
+                }
+                else
+                {
+                    eval = Int16.MinValue;
+                }
+            }
             moveScoreTable[move.RawValue + board.ZobristKey] = eval;
             eval = - eval - 1;
             if (eval > b)
