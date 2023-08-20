@@ -37,20 +37,21 @@ public class MyBot : IChessBot
             initTime = timer.MillisecondsRemaining;
             (bestEval, bestMove) = MiniMax(board, depth, Int16.MinValue, Int16.MaxValue, true);
             endTime = timer.MillisecondsRemaining;
+            Console.Write("Eval: "); //DEBUG
+            Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
+            Console.Write(" nodes visited:  "); //DEBUG
+            Console.Write(nodes); //DEBUG
+            Console.Write(" time elapsed: "); //DEBUG
+            Console.Write(initTime - endTime); //DEBUG
+            Console.Write(" at depth "); //DEBUG
+            Console.WriteLine(depth); //DEBUG
         }
         while((initTime - endTime) * 400 < endTime && depth < 20);
         //while(depth < 4); //DEBUG
 
         Console.Write(bestMove.ToString()); //DEBUG
         Console.Write(board.GetFenString()); //DEBUG
-        Console.Write("Eval: "); //DEBUG
-        Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
-        Console.Write(" nodes visited:  "); //DEBUG
-        Console.Write(nodes); //DEBUG
-        Console.Write(" time elapsed: "); //DEBUG
-        Console.Write(initTime - endTime); //DEBUG
-        Console.Write(" at depth "); //DEBUG
-        Console.WriteLine(depth); //DEBUG
+        
         Console.WriteLine(MoveLineString(board)); //DEBUG
         return bestMove;
     }
@@ -67,9 +68,6 @@ public class MyBot : IChessBot
             
         int shallowEval = Eval(board);
 
-        if(depth <= -6)
-            return (shallowEval, Move.NullMove);
-
         // do not go deeper if we know we are winning/losing
         int absEval = shallowEval * (board.IsWhiteToMove ? 1 : -1);
         if (!firstCall && (absEval - currentEval >= clearlyWinningDifference || absEval - currentEval <= -clearlyWinningDifference))
@@ -82,8 +80,9 @@ public class MyBot : IChessBot
         System.Span<Move> allMoves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref allMoves, depth <= 0);
         if (allMoves.Length == 0)
+        {
             return (shallowEval, Move.NullMove);
-
+        }
         Move bestMove = allMoves[0];
 
         //sort start
@@ -214,7 +213,7 @@ public class MyBot : IChessBot
             {
                 if(moveScoreTable.TryGetValue(board.ZobristKey + moves[i].RawValue, out int score))
                 {
-                    if (score < bestScore)
+                    if (score <= bestScore)
                     {
                         bestScore = score;
                         index = i;
