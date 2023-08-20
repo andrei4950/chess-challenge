@@ -8,7 +8,6 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> moveScoreTable = new();
     private const int clearlyWinningDifference = 1100; 
     int nodes = 0; //DEBUG
-
     private int currentEval = 0;
     private bool isEndgame;
 
@@ -35,7 +34,7 @@ public class MyBot : IChessBot
             depth++;
             nodes = 0;
             initTime = timer.MillisecondsRemaining;
-            (bestEval, bestMove) = MiniMax(board, depth, Int16.MinValue, Int16.MaxValue, true);
+            (bestEval, bestMove) = MiniMax(board, depth, Int16.MinValue, Int16.MaxValue, 0, true);
             endTime = timer.MillisecondsRemaining;
             Console.Write("Eval: "); //DEBUG
             Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
@@ -46,7 +45,7 @@ public class MyBot : IChessBot
             Console.Write(" at depth "); //DEBUG
             Console.WriteLine(depth); //DEBUG
         }
-        while((initTime - endTime) * 400 < endTime && depth < 20);
+        while((initTime - endTime) * 200 < endTime && depth < 20);
         //while(depth < 4); //DEBUG
 
         Console.Write(bestMove.ToString()); //DEBUG
@@ -56,7 +55,7 @@ public class MyBot : IChessBot
         return bestMove;
     }
 
-    public (int, Move) MiniMax(Board board, double depth, int a, int b, bool firstCall = false)
+    public (int, Move) MiniMax(Board board, double depth, int a, int b, int currentDepth = 0, bool firstCall = false)
     {
         nodes++; //DEBUG
         // Check if node is final node
@@ -64,7 +63,7 @@ public class MyBot : IChessBot
             return (0, Move.NullMove);
 
         if (board.IsInCheckmate())
-            return (Int16.MinValue, Move.NullMove);
+            return (Int16.MinValue + currentDepth, Move.NullMove);
             
         int shallowEval = Eval(board);
 
@@ -84,6 +83,7 @@ public class MyBot : IChessBot
             return (shallowEval, Move.NullMove);
         }
         // append null move
+
         Move bestMove = allMoves[0];
 
         //sort start
@@ -103,14 +103,14 @@ public class MyBot : IChessBot
             if(move != Move.NullMove)
             {
                 board.MakeMove(move);
-                (eval, Move temp) = MiniMax(board, depth - 1, -b, -a);
+                (eval, Move temp) = MiniMax(board, depth - 1, -b, -a, currentDepth + 1);
                 board.UndoMove(move);
             }
             else
             {
                 if(board.TrySkipTurn())
                 {
-                    (eval, Move temp) = MiniMax(board, depth - 1, -b, -a);
+                    (eval, Move temp) = MiniMax(board, depth - 1, -b, -a, currentDepth + 1);
                     board.UndoSkipTurn();
                 }
                 else
@@ -119,7 +119,7 @@ public class MyBot : IChessBot
                 }
             }
             moveScoreTable[move.RawValue + board.ZobristKey] = eval;
-            eval = - eval - 1;
+            eval = - eval;
             if (eval > b)
             {
                 transpositionTable[board.ZobristKey] = eval;
