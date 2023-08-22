@@ -11,6 +11,7 @@ public class TestMyBot
     Board init_pos = Board.CreateBoardFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     Board endgame_pos = Board.CreateBoardFromFEN("1k6/8/8/8/8/7K/8/7R w - - 0 50");
     Board midgame_pos = Board.CreateBoardFromFEN("r1bq1rk1/pp3ppp/2n1p3/3n4/1b1P4/2N2N2/PP2BPPP/R1BQ1RK1 w - - 0 10");
+    Board start_game_pos = Board.CreateBoardFromFEN("rn2kbnr/ppp1pppp/8/3q4/6Q1/8/PPPP1PPP/RNB1KBNR b KQkq - 1 4");
 
 
     [TestMethod]
@@ -47,6 +48,16 @@ public class TestMyBot
         Assert.AreEqual(bot.Eval(init_pos), 0);
         Assert.AreEqual(bot.Eval(midgame_pos), 12);
         Assert.AreEqual(bot.Eval(endgame_pos), 472);
+
+        Assert.AreEqual(bot.Eval(start_game_pos), -280);
+        Assert.AreEqual(start_game_pos.IsWhiteToMove, false);
+        ulong key1 = start_game_pos.ZobristKey ^ ((ulong)start_game_pos.PlyCount << 1) ^ (ulong)(start_game_pos.IsWhiteToMove ? 1 : 0);
+
+        Assert.AreEqual(start_game_pos.TrySkipTurn(), true);
+        Assert.AreEqual(bot.Eval(start_game_pos), 280);
+        Assert.AreEqual(start_game_pos.IsWhiteToMove, true);
+        ulong key2 = start_game_pos.ZobristKey ^ ((ulong)start_game_pos.PlyCount << 1) ^ (ulong)(start_game_pos.IsWhiteToMove ? 1 : 0);
+        Assert.AreNotEqual(key1, key2);
     }
 
     [TestMethod]
