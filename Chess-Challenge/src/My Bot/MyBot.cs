@@ -29,7 +29,6 @@ public class MyBot : IChessBot
 
         isEndgame = CountMaterialOfColour(board, true) + CountMaterialOfColour(board, false) < 2800;
         int depth = 0;
-        Move bestMove;
         int initTime, endTime, bestEval;
 
         do
@@ -37,7 +36,7 @@ public class MyBot : IChessBot
             depth++;
             nodes = 0;
             initTime = timer.MillisecondsRemaining;
-            (bestEval, bestMove) = MiniMax(board, depth, -inf, inf, false, true);
+            bestEval = MiniMax(board, depth, -inf, inf, false, true);
             endTime = timer.MillisecondsRemaining;
             Console.Write("Eval: "); //DEBUG
             Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
@@ -51,7 +50,7 @@ public class MyBot : IChessBot
         }
         while((initTime - endTime) * 200 < endTime && depth < 20);
         //while(depth < 2); //DEBUG
-
+        Move bestMove = GetMoveLine(board)[0];
         Console.Write(bestMove.ToString()); //DEBUG
         Console.WriteLine(board.GetFenString()); //DEBUG
         
@@ -62,29 +61,29 @@ public class MyBot : IChessBot
     /// Returns evaluation of the position calculated at specified depth (high value if position is good for the player to move)
     /// Makes use of transpositionTable for improved efficiency and moveScoreTable for sorting the moves (also better efficiency)
     /// </summary>
-    public (int, Move) MiniMax(Board board, int depth, int a, int b, bool isLastMoveCapture, bool firstCall = false)
+    public int MiniMax(Board board, int depth, int a, int b, bool isLastMoveCapture, bool firstCall = false)
     {
         nodes++; //DEBUG
         // Check if node is final node
         if (board.IsDraw()) 
-            return (0, Move.NullMove);
+            return 0;
 
         if (board.IsInCheckmate())
-            return (-inf - depth, Move.NullMove);
+            return -inf - depth;
   
         int shallowEval = Eval(board);
 
         // or if we reached depth limit
         if((depth <= 0 && !isLastMoveCapture) || depth <= -8)
         {
-            return (shallowEval, Move.NullMove);
+            return shallowEval;
         }
 
         // do not go deeper if we know we are winning/losing
         int absEval = shallowEval * (board.IsWhiteToMove ? 1 : -1);
         if (!firstCall && (absEval - currentEval >= clearlyWinningDifference || absEval - currentEval <= -clearlyWinningDifference))
         {
-            return (shallowEval, Move.NullMove);
+            return shallowEval;
         }
         
         //get available moves
@@ -92,19 +91,11 @@ public class MyBot : IChessBot
         board.GetLegalMovesNonAlloc(ref allMoves, depth <= 0);
         if (allMoves.Length == 0)
         {
-            return (shallowEval, Move.NullMove);
+            return shallowEval;
         }
 
-        Move bestMove = allMoves[0];
+        SortMoves(board, ref allMoves);
 
-        //sort start
-        System.Span<int> moveOrderKeys = stackalloc int[allMoves.Length];
-        for (int i = 0; i < allMoves.Length; i++)
-            moveOrderKeys[i] = GetMoveScore(board, allMoves[i]);
-        MemoryExtensions.Sort(moveOrderKeys, allMoves);
-        //sort end
-
-        string fen = board.GetFenString();
         ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
         int bestEval = -inf;
         if (depth <= 0)
@@ -113,7 +104,7 @@ public class MyBot : IChessBot
             if (bestEval > b) // beta pruning
             {
                 transpositionTable[key] = bestEval;
-                return (bestEval, Move.NullMove);
+                return bestEval;
             }
             if (bestEval > a) // update alpha (the improvement is probably only minor)
             {
@@ -123,20 +114,18 @@ public class MyBot : IChessBot
         foreach (Move move in allMoves)
         {
             board.MakeMove(move);
-            (int eval, Move temp) = MiniMax(board, depth - 1, -b, -a, move.IsCapture);
+            int eval =  -MiniMax(board, depth - 1, -b, -a, move.IsCapture);
             board.UndoMove(move);
             
-            moveScoreTable[move.RawValue + board.ZobristKey] = eval;
-            eval = - eval;
+            moveScoreTable[move.RawValue + board.ZobristKey] = -eval;
             if (eval > b) // beta pruning
             {
                 transpositionTable[key] = eval;
-                return (eval, move);
+                return eval;
             }
             if(eval > bestEval)
             {
                 bestEval = eval;
-                bestMove = move;
                 if (eval > a) // update alpha
                 {
                     a = eval;
@@ -144,7 +133,7 @@ public class MyBot : IChessBot
             }
         }
         transpositionTable[key] = bestEval;
-        return (bestEval, bestMove);
+        return bestEval;
     }
 
     /// <summary>
@@ -194,6 +183,17 @@ public class MyBot : IChessBot
     }
 
     /// <summary>
+    /// Sorts the moves based on move score
+    /// </summary>
+    public void SortMoves(Board board, ref Span<Move> moves)
+    {
+        System.Span<int> moveOrderKeys = stackalloc int[moves.Length];
+        for (int i = 0; i < moves.Length; i++)
+            moveOrderKeys[i] = GetMoveScore(board, moves[i]);
+        MemoryExtensions.Sort(moveOrderKeys, moves);
+    }
+
+    /// <summary>
     /// Returns evaluation of the move 
     /// Good moves recieve lower values
     /// Best efficiency obtained with iterative deepening
@@ -237,8 +237,6 @@ public class MyBot : IChessBot
     // 176 tokens for GetMoveLine and MoveLineString
     /// <summary>
     /// Debug function used for generating the best-play predicted move line
-    /// Exclusively uses moveScoreTable as source of information
-    /// Does not evaluate positions or change the state of the board/bot object
     /// </summary>
     Move[] GetMoveLine(Board startingBoard)
     {
@@ -246,28 +244,16 @@ public class MyBot : IChessBot
         Move[] moveLine = new Move[50];
         for(int j = 0; j < moveLine.Length; j++)
         {
-            int bestScore = inf;
-            int index = -1;
-            Move[] moves = board.GetLegalMoves();
-            for(int i = 0; i < moves.Length; i++)
-            {
-                if(moveScoreTable.TryGetValue(board.ZobristKey + moves[i].RawValue, out int score))
-                {
-                    if (score <= bestScore)
-                    {
-                        bestScore = score;
-                        index = i;
-                    }
-                }
-            }
-            if (index == -1)
+            System.Span<Move> moves = stackalloc Move[128];
+            board.GetLegalMovesNonAlloc(ref moves);
+            if (moves.Length == 0)
             {
                 Array.Resize(ref moveLine, j);
                 break;
             }
-            Move bestMove = moves[index];
-            moveLine[j] = bestMove;
-            board.MakeMove(bestMove);
+            SortMoves(board, ref moves);
+            moveLine[j] = moves[0];
+            board.MakeMove(moves[0]);
         }
         return moveLine;
     }
