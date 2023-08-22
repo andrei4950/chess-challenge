@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Data.Common;
 
 public class MyBot : IChessBot
 {
@@ -36,7 +37,7 @@ public class MyBot : IChessBot
             depth++;
             nodes = 0;
             initTime = timer.MillisecondsRemaining;
-            (bestEval, bestMove) = MiniMax(board, depth, -inf, inf, true);
+            (bestEval, bestMove) = MiniMax(board, depth, -inf, inf, false, true);
             endTime = timer.MillisecondsRemaining;
             Console.Write("Eval: "); //DEBUG
             Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
@@ -48,11 +49,11 @@ public class MyBot : IChessBot
             Console.WriteLine(depth); //DEBUG
             Console.WriteLine(MoveLineString(board)); //DEBUG
         }
-        //while((initTime - endTime) * 200 < endTime && depth < 20);
-        while(depth < 1); //DEBUG
+        while((initTime - endTime) * 200 < endTime && depth < 20);
+        //while(depth < 2); //DEBUG
 
         Console.Write(bestMove.ToString()); //DEBUG
-        Console.Write(board.GetFenString()); //DEBUG
+        Console.WriteLine(board.GetFenString()); //DEBUG
         
         return bestMove;
     }
@@ -61,7 +62,7 @@ public class MyBot : IChessBot
     /// Returns evaluation of the position calculated at specified depth (high value if position is good for the player to move)
     /// Makes use of transpositionTable for improved efficiency and moveScoreTable for sorting the moves (also better efficiency)
     /// </summary>
-    public (int, Move) MiniMax(Board board, int depth, int a, int b, bool firstCall = false, bool isLastMoveSkip = false)
+    public (int, Move) MiniMax(Board board, int depth, int a, int b, bool isLastMoveCapture, bool firstCall = false)
     {
         nodes++; //DEBUG
         // Check if node is final node
@@ -70,16 +71,11 @@ public class MyBot : IChessBot
 
         if (board.IsInCheckmate())
             return (-inf - depth, Move.NullMove);
-
-        if(board.GetFenString() == "rn2kbnr/ppp1pppp/8/3q4/6Q1/8/PPPP1PPP/RNB1KBNR b KQkq - 1 4")
-        {
-            Console.Write("debug"); //DEBUG
-        }
-            
+  
         int shallowEval = Eval(board);
 
-        // or if we reached capture depth limit
-        if(depth <= -8)
+        // or if we reached depth limit
+        if((depth <= 0 && !isLastMoveCapture) || depth <= -8)
         {
             return (shallowEval, Move.NullMove);
         }
@@ -109,40 +105,30 @@ public class MyBot : IChessBot
         //sort end
 
         string fen = board.GetFenString();
-
+        ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
         int bestEval = -inf;
         if (depth <= 0)
         {
-            bestEval = shallowEval;
-            if(!isLastMoveSkip)
+            bestEval = shallowEval; // do not go deeper if a player prefers to not capture anything
+            if (bestEval > b) // beta pruning
             {
-                if(board.TrySkipTurn())
-                {
-                    (bestEval, Move temp) = MiniMax(board, depth - 1, -b, -a, false, true);
-                    bestEval = -bestEval;
-                    board.UndoSkipTurn();
-                }
-                else
-                {
-                    bestEval = -inf;
-                }
+                transpositionTable[key] = bestEval;
+                return (bestEval, Move.NullMove);
             }
-        }
-        ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
-        if (bestEval > b)
-        {
-            transpositionTable[key] = bestEval;
-            return (bestEval, Move.NullMove);
+            if (bestEval > a) // update alpha (the improvement is probably only minor)
+            {
+                a = bestEval;
+            }
         }
         foreach (Move move in allMoves)
         {
             board.MakeMove(move);
-            (int eval, Move temp) = MiniMax(board, depth - 1, -b, -a, false, false);
+            (int eval, Move temp) = MiniMax(board, depth - 1, -b, -a, move.IsCapture);
             board.UndoMove(move);
             
             moveScoreTable[move.RawValue + board.ZobristKey] = eval;
             eval = - eval;
-            if (eval > b)
+            if (eval > b) // beta pruning
             {
                 transpositionTable[key] = eval;
                 return (eval, move);
@@ -151,7 +137,7 @@ public class MyBot : IChessBot
             {
                 bestEval = eval;
                 bestMove = move;
-                if (eval > a)
+                if (eval > a) // update alpha
                 {
                     a = eval;
                 }
