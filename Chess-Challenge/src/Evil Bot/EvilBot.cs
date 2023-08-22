@@ -8,13 +8,12 @@ namespace ChessChallenge.Example
 using System;
 
     public class EvilBot : IChessBot
-    {
+{
     Dictionary <ulong, int> transpositionTable = new();
     Dictionary <ulong, int> moveScoreTable = new();
+    const int inf = 30000;
     private const int clearlyWinningDifference = 1100; 
     int nodes = 0; //DEBUG
-
-    private const double captureBonusDepth = 0.4;
     private int currentEval = 0;
     private bool isEndgame;
 
@@ -32,7 +31,7 @@ using System;
         currentEval = Eval(board) * (board.IsWhiteToMove ? 1 : -1);
 
         isEndgame = CountMaterialOfColour(board, true) + CountMaterialOfColour(board, false) < 2800;
-        float depth = 0;
+        int depth = 0;
         Move bestMove;
         int initTime, endTime, bestEval;
 
@@ -41,14 +40,11 @@ using System;
             depth++;
             nodes = 0;
             initTime = timer.MillisecondsRemaining;
-            (bestEval, bestMove) = MiniMax(board, depth, Int16.MinValue, Int16.MaxValue, true);
+            (bestEval, bestMove) = MiniMax(board, depth, -inf, inf, false, true);
             endTime = timer.MillisecondsRemaining;
         }
         while((initTime - endTime) * 200 < endTime && depth < 20);
-        //while(depth < 4); //DEBUG
-
-        Console.Write(bestMove.ToString()); //DEBUG
-        Console.Write(board.GetFenString()); //DEBUG
+        //while(depth < 2); //DEBUG
         Console.Write("Eval: "); //DEBUG
         Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
         Console.Write(" nodes visited:  "); //DEBUG
@@ -58,10 +54,16 @@ using System;
         Console.Write(" at depth "); //DEBUG
         Console.WriteLine(depth); //DEBUG
         Console.WriteLine(MoveLineString(board)); //DEBUG
+        Console.WriteLine(board.GetFenString()); //DEBUG
+        
         return bestMove;
     }
 
-    public (int, Move) MiniMax(Board board, double depth, int a, int b, bool firstCall = false)
+    /// <summary>
+    /// Returns evaluation of the position calculated at specified depth (high value if position is good for the player to move)
+    /// Makes use of transpositionTable for improved efficiency and moveScoreTable for sorting the moves (also better efficiency)
+    /// </summary>
+    public (int, Move) MiniMax(Board board, int depth, int a, int b, bool isLastMoveCapture, bool firstCall = false)
     {
         nodes++; //DEBUG
         // Check if node is final node
@@ -69,12 +71,12 @@ using System;
             return (0, Move.NullMove);
 
         if (board.IsInCheckmate())
-            return (Int16.MinValue, Move.NullMove);
-            
+            return (-inf - depth, Move.NullMove);
+  
         int shallowEval = Eval(board);
 
         // or if we reached depth limit
-        if(depth <= 0)
+        if((depth <= 0 && !isLastMoveCapture) || depth <= -8)
         {
             return (shallowEval, Move.NullMove);
         }
@@ -87,57 +89,78 @@ using System;
         }
         
         //get available moves
-        // Move[] allMoves = board.GetLegalMoves();
         System.Span<Move> allMoves = stackalloc Move[128];
-        board.GetLegalMovesNonAlloc(ref allMoves);
+        board.GetLegalMovesNonAlloc(ref allMoves, depth <= 0);
+        if (allMoves.Length == 0)
+        {
+            return (shallowEval, Move.NullMove);
+        }
+
         Move bestMove = allMoves[0];
 
         //sort start
-        // int[] moveOrderKeys = new int[allMoves.Length];
         System.Span<int> moveOrderKeys = stackalloc int[allMoves.Length];
         for (int i = 0; i < allMoves.Length; i++)
             moveOrderKeys[i] = GetMoveScore(board, allMoves[i]);
-        // Array.Sort(moveOrderKeys, allMoves);
         MemoryExtensions.Sort(moveOrderKeys, allMoves);
         //sort end
 
-        int bestEval = Int16.MinValue;
-
+        string fen = board.GetFenString();
+        ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
+        int bestEval = -inf;
+        if (depth <= 0)
+        {
+            bestEval = shallowEval; // do not go deeper if a player prefers to not capture anything
+            if (bestEval > b) // beta pruning
+            {
+                transpositionTable[key] = bestEval;
+                return (bestEval, Move.NullMove);
+            }
+            if (bestEval > a) // update alpha (the improvement is probably only minor)
+            {
+                a = bestEval;
+            }
+        }
         foreach (Move move in allMoves)
         {
             board.MakeMove(move);
-            (int eval, Move temp) = MiniMax(board, depth - 1+ (move.IsCapture ? captureBonusDepth : 0), -b, -a);
+            (int eval, Move temp) = MiniMax(board, depth - 1, -b, -a, move.IsCapture);
             board.UndoMove(move);
+            
             moveScoreTable[move.RawValue + board.ZobristKey] = eval;
-            eval = - eval - 1;
-            if (eval > b)
+            eval = - eval;
+            if (eval > b) // beta pruning
             {
-                transpositionTable[board.ZobristKey] = eval;
+                transpositionTable[key] = eval;
                 return (eval, move);
             }
             if(eval > bestEval)
             {
                 bestEval = eval;
                 bestMove = move;
-                if (eval > a)
+                if (eval > a) // update alpha
                 {
                     a = eval;
                 }
             }
         }
-        transpositionTable[board.ZobristKey] = bestEval;
+        transpositionTable[key] = bestEval;
         return (bestEval, bestMove);
     }
 
+    /// <summary>
+    /// Returns evaluation of the position (high value if position is good for the player to move)
+    /// </summary>
     public int Eval(Board board)
     {
-        if(transpositionTable.TryGetValue(board.ZobristKey, out var value))
+        ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
+        if(transpositionTable.TryGetValue(key, out var value))
         {
             return value;
         }
         int eval = CountMaterialOfColour(board, board.IsWhiteToMove) - CountMaterialOfColour(board, !board.IsWhiteToMove);
         eval -= board.IsInCheck() ? 1 : 0;
-        transpositionTable.Add(board.ZobristKey, eval);
+        transpositionTable.Add(key, eval);
         return eval;
     }
 
@@ -171,6 +194,12 @@ using System;
         return eval;
     }
 
+    /// <summary>
+    /// Returns evaluation of the move 
+    /// Good moves recieve lower values
+    /// Best efficiency obtained with iterative deepening
+    /// Uses moveScoreTable
+    /// </summary>
     public int GetMoveScore(Board board, Move move)
     {
         if(moveScoreTable.TryGetValue(move.RawValue + board.ZobristKey, out var value))
@@ -207,20 +236,25 @@ using System;
 
 
     // 176 tokens for GetMoveLine and MoveLineString
+    /// <summary>
+    /// Debug function used for generating the best-play predicted move line
+    /// Exclusively uses moveScoreTable as source of information
+    /// Does not evaluate positions or change the state of the board/bot object
+    /// </summary>
     Move[] GetMoveLine(Board startingBoard)
     {
         Board board = Board.CreateBoardFromFEN(startingBoard.GetFenString()); // make a copy of the board (we do not undo moves)
         Move[] moveLine = new Move[50];
         for(int j = 0; j < moveLine.Length; j++)
         {
-            int bestScore = Int16.MaxValue;
+            int bestScore = inf;
             int index = -1;
             Move[] moves = board.GetLegalMoves();
             for(int i = 0; i < moves.Length; i++)
             {
                 if(moveScoreTable.TryGetValue(board.ZobristKey + moves[i].RawValue, out int score))
                 {
-                    if (score < bestScore)
+                    if (score <= bestScore)
                     {
                         bestScore = score;
                         index = i;
@@ -239,6 +273,11 @@ using System;
         return moveLine;
     }
 
+    /// <summary>
+    /// Returns a move line string
+    /// Used for debigging
+    /// Makes use of GetMoveLine
+    /// </summary>
     string MoveLineString(Board startingBoard)
     {
         string myString = "";
@@ -248,5 +287,5 @@ using System;
         }
         return myString;
     }
-    }
+}
 }
