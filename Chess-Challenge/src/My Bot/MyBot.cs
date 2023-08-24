@@ -11,7 +11,7 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
     private const int clearlyWinningDifference = 1100; 
-    private readonly int[] prunningTreshold = {1000, 1000, 500, 150};
+    private readonly int[] prunningTreshold = {1000, 550, 270, 120, 40, 15};
     int nodes = 0; //DEBUG
     private int currentEval = 0;
     private bool isEndgame;

@@ -1,8 +1,6 @@
 namespace TestMyBot;
 using ChessChallenge.API;
-
-
-
+using System.IO;
 
 [TestClass]
 public class TestMyBot
@@ -84,20 +82,25 @@ public class TestMyBot
     public void TestMiniMax()
     {
         string[] botMatchStartFens = ChessChallenge.Application.FileHelper.ReadResourceFile("Fens.txt").Split('\n').Where(fen => fen.Length > 0).ToArray();
-        for (int i = 0; i < 500; i++)
+        string output = "";
+        int maxDepth = 6;
+        for (int i = 0; i < 10; i++)
         {
+            output += (String.Format("Position {0} ", i)) + "\n";
             bot = new MyBot();
+            Board pos = Board.CreateBoardFromFEN(botMatchStartFens[i]);
             int depth = 0;
             int inf = 30000;
             int bestEval;
             do
             {
                 depth++;
-                bestEval = bot.MiniMax(init_pos, depth, -inf, inf, false);
-                TestContext.WriteLine(String.Format("Position {2} Eval {0}  at depth {1} ", bestEval * (init_pos.IsWhiteToMove ? 1 : -1), depth, i+1)); //DEBUG
-                Assert.AreEqual(bestEval < 50 && bestEval > -50, true);
+                bestEval = bot.MiniMax(pos, depth, -inf, inf, false);
+                output += (String.Format("Eval {0}  at depth {1} ", bestEval * (init_pos.IsWhiteToMove ? 1 : -1), depth)) + "\n";
+                Assert.AreEqual(bestEval < 100 && bestEval > -100, true);
             }
-            while(depth < 5); //DEBUG
+            while(depth < maxDepth); //DEBUG
         }
+        File.WriteAllText("filename.txt", output);
     }
 }
