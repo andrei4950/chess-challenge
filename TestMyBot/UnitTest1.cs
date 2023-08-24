@@ -13,6 +13,17 @@ public class TestMyBot
     Board midgame_pos = Board.CreateBoardFromFEN("r1bq1rk1/pp3ppp/2n1p3/3n4/1b1P4/2N2N2/PP2BPPP/R1BQ1RK1 w - - 0 10");
     Board start_game_pos = Board.CreateBoardFromFEN("rn2kbnr/ppp1pppp/8/3q4/6Q1/8/PPPP1PPP/RNB1KBNR b KQkq - 1 4");
 
+    private TestContext testContextInstance;
+
+    /// <summary>
+    /// Gets or sets the test context which provides
+    /// information about and functionality for the current test run.
+    /// </summary>
+    public TestContext TestContext
+    {
+        get { return testContextInstance; }
+        set { testContextInstance = value; }
+    }
 
     [TestMethod]
     public void TestGetDistEvalBonus()
@@ -67,5 +78,26 @@ public class TestMyBot
         System.Span<Move> slicedSpan = mySpan.Slice(0, 32);
         Assert.AreEqual(mySpan.Length, 128);
         Assert.AreEqual(slicedSpan.Length, 32);        
+    }
+    
+    [TestMethod]
+    public void TestMiniMax()
+    {
+        string[] botMatchStartFens = ChessChallenge.Application.FileHelper.ReadResourceFile("Fens.txt").Split('\n').Where(fen => fen.Length > 0).ToArray();
+        for (int i = 0; i < 500; i++)
+        {
+            bot = new MyBot();
+            int depth = 0;
+            int inf = 30000;
+            int bestEval;
+            do
+            {
+                depth++;
+                bestEval = bot.MiniMax(init_pos, depth, -inf, inf, false);
+                TestContext.WriteLine(String.Format("Position {2} Eval {0}  at depth {1} ", bestEval * (init_pos.IsWhiteToMove ? 1 : -1), depth, i+1)); //DEBUG
+                Assert.AreEqual(bestEval < 50 && bestEval > -50, true);
+            }
+            while(depth < 5); //DEBUG
+        }
     }
 }
