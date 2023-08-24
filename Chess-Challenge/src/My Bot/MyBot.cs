@@ -11,7 +11,7 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
     private const int clearlyWinningDifference = 1100; 
-    private readonly int[] prunningTreshold = {1100, 1100, 800, 300, 100};
+    private readonly int[] prunningTreshold = {1000, 1000, 500, 150};
     int nodes = 0; //DEBUG
     private int currentEval = 0;
     private bool isEndgame;
@@ -30,6 +30,7 @@ public class MyBot : IChessBot
         isEndgame = CountMaterialOfColour(board, true) + CountMaterialOfColour(board, false) < 2800;
         int depth = 0;
         int initTime, endTime, bestEval;
+        Move bestMove;
         initTime = timer.MillisecondsRemaining;
         do
         {
@@ -41,14 +42,16 @@ public class MyBot : IChessBot
 #if MY_BOT_DEBUG
             Console.Write("Eval: "); //DEBUG
             Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
-            Console.Write(" nodes visited:  "); //DEBUG
+            bestMove = GetMoveLine(board)[0];
+            Console.Write(bestMove.ToString()); //DEBUG
+            Console.Write(" nodes:  "); //DEBUG
             Console.Write(nodes); //DEBUG
             Console.Write(" time elapsed: "); //DEBUG
             Console.Write(initTime - endTime); //DEBUG
             Console.Write(" at depth "); //DEBUG
             Console.WriteLine(depth); //DEBUG
-            Console.WriteLine(MoveLineString(board)); //DEBUG
-            MoveTableExplorer(board);
+            //Console.WriteLine(MoveLineString(board)); //DEBUG
+            //MoveTableExplorer(board);
 #endif
         }
 #if MY_BOT_DEBUG
@@ -56,8 +59,6 @@ public class MyBot : IChessBot
 #else
         while((initTime - endTime) * 200 < endTime && depth < 20);
 #endif
-        Move bestMove = GetMoveLine(board)[0];
-        //Console.Write(bestMove.ToString()); //DEBUG
         //Console.WriteLine(board.GetFenString()); //DEBUG
         return bestMove;
     }
@@ -199,7 +200,7 @@ public class MyBot : IChessBot
         for (int i = 0; i < moves.Length; i++)
             moveOrderKeys[i] = GetMoveScore(board, moves[i]);
         MemoryExtensions.Sort(moveOrderKeys, moves);
-        int treshold = moveOrderKeys[0] + prunningTreshold[Math.Min(Math.Max(depth, 0), prunningTreshold.Length -1)];
+        int treshold = moveOrderKeys[0] + prunningTreshold[Math.Min(Math.Max(depth - 1, 0), prunningTreshold.Length -1)];
         for (int i = 0; i < moveOrderKeys.Length; i++)
         {
             if (moveOrderKeys[i] > treshold)
