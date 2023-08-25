@@ -1,4 +1,4 @@
-﻿#define MY_BOT_DEBUG
+﻿//#define MY_BOT_DEBUG
 using ChessChallenge.API;
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
     private const int clearlyWinningDifference = 1100; 
-    private readonly int[] prunningTreshold = {1000, 550, 270, 120, 40, 15};
+    private readonly int[] prunningTreshold = {1000, 950, 850};
     int nodes = 0; //DEBUG
     private int currentEval = 0;
     private bool isEndgame;
@@ -58,6 +58,16 @@ public class MyBot : IChessBot
         while(depth < 20); //DEBUG
 #else
         while((initTime - endTime) * 200 < endTime && depth < 20);
+        Console.Write("Eval: "); //DEBUG
+        Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
+        bestMove = GetMoveLine(board)[0];
+        Console.Write(bestMove.ToString()); //DEBUG
+        Console.Write(" nodes:  "); //DEBUG
+        Console.Write(nodes); //DEBUG
+        Console.Write(" time elapsed: "); //DEBUG
+        Console.Write(initTime - endTime); //DEBUG
+        Console.Write(" at depth "); //DEBUG
+        Console.WriteLine(depth); //DEBUG
 #endif
         //Console.WriteLine(board.GetFenString()); //DEBUG
         return bestMove;
