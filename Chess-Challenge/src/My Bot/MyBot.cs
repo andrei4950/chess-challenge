@@ -88,15 +88,15 @@ public class MyBot : IChessBot
             return shallowEval;
         }
 
-        /*/int treshold = System.Convert.ToInt32(Math.Floor(1100 * Math.Pow(3.5, -depth + 1) + 1));
-        //int treshold = prunningTreshold[Math.Min(Math.Max(depth, 0), 11)];
-        int treshold = clearlyWinningDifference;
+        int treshold = prunningTreshold[Math.Min(Math.Max(depth, 0), prunningTreshold.Length -1)];
+        //int treshold = System.Convert.ToInt32(Math.Floor(1100 * Math.Pow(3.5, -depth + 1) + 1));
+        //int treshold = clearlyWinningDifference;
         // do not go deeper if we know we are winning/losing
         int absEval = shallowEval * (board.IsWhiteToMove ? 1 : -1);
         if (absEval - currentEval >= treshold || absEval - currentEval <= -treshold)
         {
             return shallowEval;
-        }*/
+        }
         
         //get available moves
         System.Span<Move> allMoves = stackalloc Move[128];
@@ -106,7 +106,7 @@ public class MyBot : IChessBot
             return shallowEval;
         }
 
-        SortAndPruneMoves(board, ref allMoves, depth);
+        SortMoves(board, ref allMoves);
 
         ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
         int bestEval = -inf;
@@ -197,12 +197,13 @@ public class MyBot : IChessBot
     /// <summary>
     /// Sorts the moves based on move score
     /// </summary>
-    public void SortAndPruneMoves(Board board, ref Span<Move> moves, int depth)
+    public void SortMoves(Board board, ref Span<Move> moves)
     {
         System.Span<int> moveOrderKeys = stackalloc int[moves.Length];
         for (int i = 0; i < moves.Length; i++)
             moveOrderKeys[i] = GetMoveScore(board, moves[i]);
         MemoryExtensions.Sort(moveOrderKeys, moves);
+<<<<<<< HEAD
         int treshold = moveOrderKeys[0] + prunningTreshold[Math.Min(Math.Max(depth, 0), prunningTreshold.Length -1)];
         for (int i = 0; i < moveOrderKeys.Length; i++)
         {
@@ -212,6 +213,8 @@ public class MyBot : IChessBot
                 break;
             }
         }
+=======
+>>>>>>> 1d86f6c (first implementation)
     }
 
     /// <summary>
@@ -272,7 +275,7 @@ public class MyBot : IChessBot
                 Array.Resize(ref moveLine, j);
                 break;
             }
-            SortAndPruneMoves(board, ref moves, 0);
+            SortMoves(board, ref moves);
             moveLine[j] = moves[0];
             board.MakeMove(moves[0]);
         }
