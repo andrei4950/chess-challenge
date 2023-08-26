@@ -12,17 +12,6 @@ public class TestMyBot
     Board midgame_pos = Board.CreateBoardFromFEN("r1bq1rk1/pp3ppp/2n1p3/3n4/1b1P4/2N2N2/PP2BPPP/R1BQ1RK1 w - - 0 10");
     Board start_game_pos = Board.CreateBoardFromFEN("rn2kbnr/ppp1pppp/8/3q4/6Q1/8/PPPP1PPP/RNB1KBNR b KQkq - 1 4");
 
-    private TestContext testContextInstance;
-
-    /// <summary>
-    /// Gets or sets the test context which provides
-    /// information about and functionality for the current test run.
-    /// </summary>
-    public TestContext TestContext
-    {
-        get { return testContextInstance; }
-        set { testContextInstance = value; }
-    }
 
     [TestMethod]
     public void TestGetDistEvalBonus()
@@ -34,6 +23,26 @@ public class TestMyBot
         PieceList bKnights = init_pos.GetPieceList(PieceType.Knight, false);
         int bonus = MyBot.GetDistEvalBonus(init_pos, bKnights);
         Assert.AreEqual(bonus, -38, 0.01);
+    }
+
+    [TestMethod]
+    public void TestOnlyCaptures()
+    {
+        string[] botMatchStartFens = ChessChallenge.Application.FileHelper.ReadResourceFile("Fens.txt").Split('\n').Where(fen => fen.Length > 0).ToArray();
+        string output = "";
+        for (int i = 0; i < 499; i++)
+        {
+            bot = new MyBot();
+            Board pos = Board.CreateBoardFromFEN(botMatchStartFens[i]);
+            int inf = 30000;
+            int noCaptureEval = bot.MiniMax(pos, 0, -inf, inf, false);
+            int captureEval = bot.MiniMax(pos, 0, -inf, inf, true);
+            if (captureEval != noCaptureEval)
+            {
+                output += botMatchStartFens[i] + String.Format(" noCaptureEval: {0} captureEval: {1} \n",noCaptureEval, captureEval);
+            }
+        }
+        File.WriteAllText("testOutput.txt", output);
     }
 
     [TestMethod]
@@ -86,7 +95,7 @@ public class TestMyBot
         string[] referenceOutput = File.ReadAllText("testminimax.txt").Split("\n");
         string output = "";
         int maxDepth = 6;
-        for (int i = 0; i < 100; i++)
+        for (int i = 0; i < 1; i++)
         {
             string outputLine = String.Format("{0} ", i) + botMatchStartFens[i];
             bot = new MyBot();
