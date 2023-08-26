@@ -11,7 +11,7 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
     private const int clearlyWinningDifference = 1100; 
-    private readonly int[] prunningTreshold = {1000, 950, 850};
+    private readonly int[] prunningTreshold = {950, 600/*tight*/, 450/*400 might work*/, 400, 300};
     int nodes = 0; //DEBUG
     private int currentEval = 0;
     private bool isEndgame;
@@ -96,8 +96,6 @@ public class MyBot : IChessBot
         }
 
         int treshold = prunningTreshold[Math.Min(Math.Max(depth, 0), prunningTreshold.Length -1)];
-        //int treshold = System.Convert.ToInt32(Math.Floor(1100 * Math.Pow(3.5, -depth + 1) + 1));
-        //int treshold = clearlyWinningDifference;
         // do not go deeper if we know we are winning/losing
         int absEval = shallowEval * (board.IsWhiteToMove ? 1 : -1);
         if (absEval - currentEval >= treshold || absEval - currentEval <= -treshold)
