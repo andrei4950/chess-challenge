@@ -106,4 +106,20 @@ public class TestMyBot
         }
         File.WriteAllText("testOutput.txt", output);
     }
+
+    [TestMethod]
+    public void TestPuzzle()
+    {
+        string[] puzzleTest = File.ReadAllText("puzzleTest.txt").Split("\n").Where(fen => fen.Length > 0).ToArray();
+        for (int i = 0; i < puzzleTest.Length; i++)
+        {
+            string[] puzzleComponents = puzzleTest[i].Split("@");
+            Board board = Board.CreateBoardFromFEN(puzzleComponents[1]);
+            Move expectedMove = new Move(puzzleComponents[0], board);
+
+            Timer timer = new Timer(200 *1000);
+            bot = new MyBot();
+            Assert.AreEqual(expectedMove, bot.Think(board, timer));
+        }
+    }
 }
