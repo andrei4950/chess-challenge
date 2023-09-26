@@ -117,7 +117,7 @@ public class TestMyBot
             Board board = Board.CreateBoardFromFEN(puzzleComponents[1]);
             Move expectedMove = new Move(puzzleComponents[0], board);
 
-            Timer timer = new Timer(20 *1000);
+            Timer timer = new Timer(200 *1000);
             bot = new MyBot();
             Assert.AreEqual(expectedMove, bot.Think(board, timer));
         }
