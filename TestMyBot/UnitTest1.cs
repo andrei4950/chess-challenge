@@ -1,8 +1,7 @@
 namespace TestMyBot;
 using ChessChallenge.API;
-
-
-
+using ChessChallenge.Example;
+using System.IO;
 
 [TestClass]
 public class TestMyBot
@@ -13,6 +12,17 @@ public class TestMyBot
     Board midgame_pos = Board.CreateBoardFromFEN("r1bq1rk1/pp3ppp/2n1p3/3n4/1b1P4/2N2N2/PP2BPPP/R1BQ1RK1 w - - 0 10");
     Board start_game_pos = Board.CreateBoardFromFEN("rn2kbnr/ppp1pppp/8/3q4/6Q1/8/PPPP1PPP/RNB1KBNR b KQkq - 1 4");
 
+    private TestContext testContextInstance;
+
+    /// <summary>
+    /// Gets or sets the test context which provides
+    /// information about and functionality for the current test run.
+    /// </summary>
+    public TestContext TestContext
+    {
+        get { return testContextInstance; }
+        set { testContextInstance = value; }
+    }
 
     [TestMethod]
     public void TestGetDistEvalBonus()
@@ -67,5 +77,33 @@ public class TestMyBot
         System.Span<Move> slicedSpan = mySpan.Slice(0, 32);
         Assert.AreEqual(mySpan.Length, 128);
         Assert.AreEqual(slicedSpan.Length, 32);        
+    }
+    
+    [TestMethod]
+    public void TestMiniMax()
+    {
+        string[] botMatchStartFens = ChessChallenge.Application.FileHelper.ReadResourceFile("Fens.txt").Split('\n').Where(fen => fen.Length > 0).ToArray();
+        string[] referenceOutput = File.ReadAllText("testminimax.txt").Split("\n");
+        string output = "";
+        int maxDepth = 6;
+        for (int i = 0; i < 100; i++)
+        {
+            string outputLine = String.Format("{0} ", i) + botMatchStartFens[i];
+            bot = new MyBot();
+            Board pos = Board.CreateBoardFromFEN(botMatchStartFens[i]);
+            int depth = 0;
+            int inf = 30000;
+            int bestEval;
+            do
+            {
+                depth++;
+                bestEval = bot.MiniMax(pos, depth, -inf, inf, false);
+                outputLine += String.Format("Eval {0} depth {1} ", bestEval * (init_pos.IsWhiteToMove ? 1 : -1), depth);
+            }
+            while(depth < maxDepth); //DEBUG
+            Assert.AreEqual(referenceOutput[i], outputLine);
+            output += "\n" + outputLine;
+        }
+        File.WriteAllText("testOutput.txt", output);
     }
 }
