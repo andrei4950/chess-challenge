@@ -1,5 +1,4 @@
-﻿#define MY_BOT_DEBUG
-using ChessChallenge.API;
+﻿using ChessChallenge.API;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -10,12 +9,6 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> transpositionTable = new();
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
-    private const int clearlyWinningDifference = 1100; 
-<<<<<<< HEAD
-    private readonly int[] prunningTreshold = {1100, 1100, 800, 300, 100};
-=======
-    private readonly int[] prunningTreshold = {1000, 550, 270, 120, 40, 15};
->>>>>>> 3bc1707 (basic unit testing for minmax)
     int nodes = 0; //DEBUG
     private int currentEval = 0;
     private bool isEndgame;
@@ -38,11 +31,9 @@ public class MyBot : IChessBot
         do
         {
             depth++;
-             //DEBUG
             currentEval = Eval(board) * (board.IsWhiteToMove ? 1 : -1);
             bestEval = MiniMax(board, depth, -inf, inf, false);
             endTime = timer.MillisecondsRemaining;
-#if MY_BOT_DEBUG
             Console.Write("Eval: "); //DEBUG
             Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
             Console.Write(" nodes visited:  "); //DEBUG
@@ -53,13 +44,9 @@ public class MyBot : IChessBot
             Console.WriteLine(depth); //DEBUG
             Console.WriteLine(MoveLineString(board)); //DEBUG
             MoveTableExplorer(board);
-#endif
         }
-#if MY_BOT_DEBUG
         while(depth < 20); //DEBUG
-#else
-        while((initTime - endTime) * 200 < endTime && depth < 20);
-#endif
+        //while((initTime - endTime) * 200 < endTime && depth < 20);
         Move bestMove = GetMoveLine(board)[0];
         //Console.Write(bestMove.ToString()); //DEBUG
         //Console.WriteLine(board.GetFenString()); //DEBUG
@@ -84,16 +71,6 @@ public class MyBot : IChessBot
 
         // or if we reached depth limit
         if((depth <= 0 && !isLastMoveCapture) || depth <= -8)
-        {
-            return shallowEval;
-        }
-
-        int treshold = prunningTreshold[Math.Min(Math.Max(depth, 0), prunningTreshold.Length -1)];
-        //int treshold = System.Convert.ToInt32(Math.Floor(1100 * Math.Pow(3.5, -depth + 1) + 1));
-        //int treshold = clearlyWinningDifference;
-        // do not go deeper if we know we are winning/losing
-        int absEval = shallowEval * (board.IsWhiteToMove ? 1 : -1);
-        if (absEval - currentEval >= treshold || absEval - currentEval <= -treshold)
         {
             return shallowEval;
         }
@@ -203,18 +180,6 @@ public class MyBot : IChessBot
         for (int i = 0; i < moves.Length; i++)
             moveOrderKeys[i] = GetMoveScore(board, moves[i]);
         MemoryExtensions.Sort(moveOrderKeys, moves);
-<<<<<<< HEAD
-        int treshold = moveOrderKeys[0] + prunningTreshold[Math.Min(Math.Max(depth, 0), prunningTreshold.Length -1)];
-        for (int i = 0; i < moveOrderKeys.Length; i++)
-        {
-            if (moveOrderKeys[i] > treshold)
-            {
-                moves = moves.Slice(0, i);
-                break;
-            }
-        }
-=======
->>>>>>> 1d86f6c (first implementation)
     }
 
     /// <summary>
@@ -282,7 +247,6 @@ public class MyBot : IChessBot
         return moveLine;
     }
     
-#if MY_BOT_DEBUG
     /// <summary>
     /// Returns a move line string
     /// Used for debigging
@@ -389,5 +353,4 @@ public class MyBot : IChessBot
             }
         }
     }
-    #endif
 }
