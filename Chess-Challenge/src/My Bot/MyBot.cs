@@ -43,10 +43,10 @@ public class MyBot : IChessBot
             Console.Write(" at depth "); //DEBUG
             Console.WriteLine(depth); //DEBUG
             Console.WriteLine(MoveLineString(board)); //DEBUG
-            MoveTableExplorer(board);
+            //MoveTableExplorer(board);
         }
-        while(depth < 20); //DEBUG
-        //while((initTime - endTime) * 200 < endTime && depth < 20);
+        //while(depth < 20); //DEBUG
+        while((initTime - endTime) * 200 < endTime && depth < 20);
         Move bestMove = GetMoveLine(board)[0];
         //Console.Write(bestMove.ToString()); //DEBUG
         //Console.WriteLine(board.GetFenString()); //DEBUG
