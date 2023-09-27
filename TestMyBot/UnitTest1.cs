@@ -97,7 +97,7 @@ public class TestMyBot
             do
             {
                 depth++;
-                bestEval = bot.MiniMax(pos, depth, -inf, inf, false);
+                bestEval = bot.MiniMax(pos, depth, -inf, inf, false, false, false);
                 outputLine += String.Format("Eval {0} depth {1} ", bestEval * (init_pos.IsWhiteToMove ? 1 : -1), depth);
             }
             while(depth < maxDepth); //DEBUG
@@ -117,9 +117,26 @@ public class TestMyBot
             Board board = Board.CreateBoardFromFEN(puzzleComponents[1]);
             Move expectedMove = new Move(puzzleComponents[0], board);
 
-            Timer timer = new Timer(200 *1000);
             bot = new MyBot();
+            Timer timer = new Timer(20 * 1000);
             Assert.AreEqual(expectedMove, bot.Think(board, timer));
+        }
+    }
+
+    [TestMethod]
+    public void TestQuiescence()
+    {
+        string[] puzzleTest = File.ReadAllText("puzzleTest.txt").Split("\n").Where(fen => fen.Length > 0).ToArray();
+        for (int i = 0; i < 8; i++)
+        {
+            string[] puzzleComponents = puzzleTest[i].Split("@");
+            Board board = Board.CreateBoardFromFEN(puzzleComponents[1]);
+            Move expectedMove = new Move(puzzleComponents[0], board);
+
+            bot = new MyBot();
+            bot.StartQuiescenceSearch(board, -30000, 30000, false);
+            Move bestMove = bot.GetMoveLine(board)[0];
+            Assert.AreEqual(expectedMove, bestMove);
         }
     }
 }
