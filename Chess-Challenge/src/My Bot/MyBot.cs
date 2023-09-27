@@ -10,7 +10,6 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
     int nodes = 0; //DEBUG
-    private int currentEval = 0;
     private bool isEndgame;
 
     private readonly int[] whitePawnDesiredPositions = { 0, 0, 0, 0, 0, 0, 0, 0, 
@@ -31,7 +30,6 @@ public class MyBot : IChessBot
         do
         {
             depth++;
-            currentEval = Eval(board) * (board.IsWhiteToMove ? 1 : -1);
             bestEval = MiniMax(board, depth, -inf, inf, false, false, true);
             endTime = timer.MillisecondsRemaining;
             Console.Write("Eval: "); //DEBUG
@@ -42,11 +40,12 @@ public class MyBot : IChessBot
             Console.Write(initTime - endTime); //DEBUG
             Console.Write(" at depth "); //DEBUG
             Console.WriteLine(depth); //DEBUG
-            Console.WriteLine(MoveLineString(board)); //DEBUG
+            //Console.WriteLine(MoveLineString(board)); //DEBUG
             //MoveTableExplorer(board);
+            Move DEBUGbestMove = GetMoveLine(board)[0]; // DEBUG
         }
-        //while(depth < 1); //DEBUG
-        while((initTime - endTime) * 200 < endTime && depth < 20);
+        while(depth < 2); //DEBUG
+        //while((initTime - endTime) * 200 < endTime && depth < 20);
         Move bestMove = GetMoveLine(board)[0];
         //Console.Write(bestMove.ToString()); //DEBUG
         //Console.WriteLine(board.GetFenString()); //DEBUG
@@ -72,7 +71,7 @@ public class MyBot : IChessBot
         if (isQuiescenceSearch && !isLastMoveCapture && !isInCheck && !wasInCheck) // only want captures and checks in quiescence search (or getting out of check)
             return inf;
   
-        int shallowEval = Eval(board);
+        int shallowEval = CountMaterialOfColour(board, board.IsWhiteToMove) - CountMaterialOfColour(board, !board.IsWhiteToMove);
 
         // or if we reached depth limit
         if(depth <= 0)
@@ -103,11 +102,11 @@ public class MyBot : IChessBot
             board.UndoMove(move);
             
             moveScoreTable[move.RawValue + board.ZobristKey] = -eval;
-            /*if (eval > b) // beta pruning
+            if (eval > b) // beta pruning
             {
                 transpositionTable[key] = eval;
                 return eval;
-            }*/
+            }
             if(eval > bestEval)
             {
                 bestEval = eval;
@@ -129,9 +128,9 @@ public class MyBot : IChessBot
         {
             depth++;
             bestEval = MiniMax(board, depth, a, b, true, true, wasInCheck);
-            Move bestMove = GetMoveLine(board)[0]; // DEBUG
+            //Move bestMove = GetMoveLine(board)[0]; // DEBUG
         }
-        while(depth < 7); 
+        while(depth < 8); 
         return bestEval;
     }
 

@@ -124,7 +124,7 @@ public class TestMyBot
     }
 
     [TestMethod]
-    public void TestQuiescence()
+    public void TestQuiescenceOnPuzzle()
     {
         string[] puzzleTest = File.ReadAllText("puzzleTest.txt").Split("\n").Where(fen => fen.Length > 0).ToArray();
         for (int i = 0; i < 8; i++)
@@ -138,5 +138,31 @@ public class TestMyBot
             Move bestMove = bot.GetMoveLine(board)[0];
             Assert.AreEqual(expectedMove, bestMove);
         }
+    }
+
+    [TestMethod]
+    public void TestQuiescence()
+    {
+        Board board = Board.CreateBoardFromFEN("3k3r/1R3pb1/3p1n1p/3P2p1/q1PBP3/5PPB/3N1K1P/8 w - - 4 29");
+
+        bot = new MyBot();
+        int eval = bot.StartQuiescenceSearch(board, -30000, 30000, false);
+        string debug = bot.MoveLineString(board);
+
+        bot = new MyBot();
+        int eval1 = bot.Eval(Board.CreateBoardFromFEN("3k3r/5R2/3p1b1p/3P2p1/q1P1P3/5PPB/3N1K1P/8 b - - 0 30"));
+        
+        Assert.AreEqual(eval1, -eval);
+
+        board = Board.CreateBoardFromFEN("8/6k1/8/3K4/8/8/pppppppp/rrrrrrrr b - - 0 29");
+
+        bot = new MyBot();
+        eval = bot.StartQuiescenceSearch(board, -30000, 30000, false);
+        debug = bot.MoveLineString(board);
+
+        bot = new MyBot();
+        eval1 = bot.Eval(board);
+        
+        Assert.AreEqual(eval1, eval);
     }
 }
