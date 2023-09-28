@@ -36,13 +36,13 @@ public class MyBot : IChessBot
             endTime = timer.MillisecondsRemaining;
             Console.Write("Eval: "); //DEBUG
             Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
-            Console.Write(" nodes visited:  "); //DEBUG
-            Console.Write(nodes); //DEBUG
+            Console.Write(" nodes/s :  "); //DEBUG
+            Console.Write(nodes * 1000 / (initTime - endTime + 1)); //DEBUG
             Console.Write(" time elapsed: "); //DEBUG
             Console.Write(initTime - endTime); //DEBUG
             Console.Write(" at depth "); //DEBUG
             Console.WriteLine(depth); //DEBUG
-            Console.WriteLine(MoveLineString(board)); //DEBUG
+            //Console.WriteLine(MoveLineString(board)); //DEBUG
             //MoveTableExplorer(board);
         }
         //while(depth < 20); //DEBUG
@@ -67,7 +67,7 @@ public class MyBot : IChessBot
         if (board.IsInCheckmate())
             return -inf - depth;
   
-        int shallowEval = Eval(board);
+        int shallowEval = CountMaterialOfColour(board, board.IsWhiteToMove) - CountMaterialOfColour(board, !board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
 
         // or if we reached depth limit
         if((depth <= 0 && !isLastMoveCapture) || depth <= -8)
