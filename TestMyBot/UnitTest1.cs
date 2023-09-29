@@ -83,7 +83,7 @@ public class TestMyBot
     public void TestMiniMax()
     {
         string[] botMatchStartFens = ChessChallenge.Application.FileHelper.ReadResourceFile("Fens.txt").Split('\n').Where(fen => fen.Length > 0).ToArray();
-        string[] referenceOutput = File.ReadAllText("testminimax.txt").Split("\n");
+        string[] referenceOutput = File.ReadAllText("testminimax2.txt").Split("\n");
         string output = "";
         int maxDepth = 6;
         for (int i = 0; i < 100; i++)
