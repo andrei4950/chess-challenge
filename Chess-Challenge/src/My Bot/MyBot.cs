@@ -64,10 +64,13 @@ public class MyBot : IChessBot
     {
         nodes++; //DEBUG
         // Check if node was visited before
-        ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
-        if(transpositionTable.TryGetValue(key, out var value)) return value;
-
-        // Check if node is final node
+        ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(isLastMoveCapture ? 1 : 0) ^ ((ulong)depth << 8)^ ((ulong)a << 16)^ ((ulong)b << 24);
+        if(transpositionTable.TryGetValue(key, out var value)) 
+        {
+            string fen = board.GetFenString(); // DEBUG
+            return value;
+        }
+        // Check if node is final nodez
         if (board.IsDraw()) 
             return 0;
 
