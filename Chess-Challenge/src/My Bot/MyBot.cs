@@ -6,7 +6,7 @@ using System.Data.Common;
 
 public class MyBot : IChessBot
 {
-    Dictionary <ulong, int> transpositionTable = new();
+    //Dictionary <ulong, int> transpositionTable = new();
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
     int nodes = 0; //DEBUG
@@ -29,22 +29,25 @@ public class MyBot : IChessBot
         initTime = timer.MillisecondsRemaining;
         do
         {
+            moveScoreTable.Clear();
             depth++;
             bestEval = MiniMax(board, depth, -inf, inf, false, false, true);
             endTime = timer.MillisecondsRemaining;
             Console.Write("Eval: "); //DEBUG
             Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
-            Console.Write(" nodes visited:  "); //DEBUG
+            Console.Write(" nodes visited:  "); //
             Console.Write(nodes); //DEBUG
             Console.Write(" time elapsed: "); //DEBUG
             Console.Write(initTime - endTime); //DEBUG
+            Console.Write(" nodes/s :  "); //DEBUG
+            Console.Write(nodes * 1000 / (initTime - endTime + 1)); //DEBUG
             Console.Write(" at depth "); //DEBUG
             Console.WriteLine(depth); //DEBUG
             //Console.WriteLine(MoveLineString(board)); //DEBUG
             //MoveTableExplorer(board);
             Move DEBUGbestMove = GetMoveLine(board)[0]; // DEBUG
         }
-        while(depth < 2); //DEBUG
+        while(depth < 20); //DEBUG
         //while((initTime - endTime) * 200 < endTime && depth < 20);
         Move bestMove = GetMoveLine(board)[0];
         //Console.Write(bestMove.ToString()); //DEBUG
@@ -91,7 +94,7 @@ public class MyBot : IChessBot
             bestEval = shallowEval; // do not go deeper if a player prefers to not capture anything
             if (bestEval > b) // beta pruning
             {
-                transpositionTable[key] = bestEval;
+                //transpositionTable[key] = bestEval;
                 return bestEval;
             }
         }
@@ -104,7 +107,7 @@ public class MyBot : IChessBot
             moveScoreTable[move.RawValue + board.ZobristKey] = -eval;
             if (eval > b) // beta pruning
             {
-                transpositionTable[key] = eval;
+                //transpositionTable[key] = eval;
                 return eval;
             }
             if(eval > bestEval)
@@ -116,13 +119,13 @@ public class MyBot : IChessBot
                 }
             }
         }
-        transpositionTable[key] = bestEval;
+        //transpositionTable[key] = bestEval;
         return bestEval;
     }
 
     public int StartQuiescenceSearch(Board board, int a, int b, bool wasInCheck)
     {
-        int depth = 0;
+        /*int depth = 0;
         int bestEval;
         do
         {
@@ -131,7 +134,8 @@ public class MyBot : IChessBot
             //Move bestMove = GetMoveLine(board)[0]; // DEBUG
         }
         while(depth < 8); 
-        return bestEval;
+        return bestEval;*/
+        return MiniMax(board, 8, a, b, true, true, wasInCheck);
     }
 
     /// <summary>
@@ -139,14 +143,14 @@ public class MyBot : IChessBot
     /// </summary>
     public int Eval(Board board)
     {
-        ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
+        /*ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
         if(transpositionTable.TryGetValue(key, out var value))
         {
             return value;
-        }
+        }*/
         int eval = CountMaterialOfColour(board, board.IsWhiteToMove) - CountMaterialOfColour(board, !board.IsWhiteToMove);
         eval -= board.IsInCheck() ? 200 : 0;
-        transpositionTable.Add(key, eval);
+        //transpositionTable.Add(key, eval);
         return eval;
     }
 
@@ -280,7 +284,7 @@ public class MyBot : IChessBot
         return myString;
     }
 
-    public void MoveTableExplorer(Board board, int depth = 0)
+    /*public void MoveTableExplorer(Board board, int depth = 0)
     {
         while(true)
         {
@@ -298,7 +302,7 @@ public class MyBot : IChessBot
         }
     }
 
-    public void DisplayNode(Board board, int depth)
+    /*public void DisplayNode(Board board, int depth)
     {
         Console.Write("Depth: "); //DEBUG
         Console.WriteLine(depth); //DEBUG
@@ -336,7 +340,7 @@ public class MyBot : IChessBot
                 Console.WriteLine(score);
             }
         }
-    }
+    }*/
 
     public int GetMoveScoreNoEvaluating(Board board, Move move)
     {
