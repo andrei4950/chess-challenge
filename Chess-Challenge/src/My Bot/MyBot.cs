@@ -6,7 +6,7 @@ using System.Data.Common;
 
 public class MyBot : IChessBot
 {
-   // Dictionary <ulong, int> transpositionTable = new();
+    Dictionary <ulong, int> transpositionTable = new();
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
     int nodes = 0; //DEBUG
@@ -25,12 +25,12 @@ public class MyBot : IChessBot
     public Move Think(Board board, Timer timer)
     {
         isEndgame = CountMaterialOfColour(board, true) + CountMaterialOfColour(board, false) < 2800;
-        int depth = 1;
+        int depth = 0;
         int initTime, endTime, bestEval;
         initTime = timer.MillisecondsRemaining;
         do
         {
-            moveScoreTable.Clear();
+            transpositionTable.Clear();
             depth++;
             currentEval = Eval(board) * (board.IsWhiteToMove ? 1 : -1);
             bestEval = MiniMax(board, depth, -inf, inf, false);
@@ -48,8 +48,8 @@ public class MyBot : IChessBot
             //Console.WriteLine(MoveLineString(board)); //DEBUG
             //MoveTableExplorer(board);
         }
-        //while(depth < 20); //DEBUG
-        while((initTime - endTime) * 200 < endTime && depth < 20);
+        while(depth < 20); //DEBUG
+        //while((initTime - endTime) * 200 < endTime && depth < 20);
         Move bestMove = GetMoveLine(board)[0];
         //Console.Write(bestMove.ToString()); //DEBUG
         //Console.WriteLine(board.GetFenString()); //DEBUG
@@ -63,6 +63,10 @@ public class MyBot : IChessBot
     public int MiniMax(Board board, int depth, int a, int b, bool isLastMoveCapture)
     {
         nodes++; //DEBUG
+        // Check if node was visited before
+        ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
+        if(transpositionTable.TryGetValue(key, out var value)) return value;
+
         // Check if node is final node
         if (board.IsDraw()) 
             return 0;
@@ -86,16 +90,14 @@ public class MyBot : IChessBot
             return shallowEval;
         }
 
-        SortMoves(board, ref allMoves);
+        if (depth >= -6) SortMoves(board, ref allMoves);
 
-        ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
         int bestEval = -inf;
         if (depth <= 0)
         {
             bestEval = shallowEval; // do not go deeper if a player prefers to not capture anything
             if (bestEval > b) // beta pruning
             {
-                //transpositionTable[key] = bestEval;
                 return bestEval;
             }
             if (bestEval > a) // update alpha (the improvement is probably only minor)
@@ -111,11 +113,11 @@ public class MyBot : IChessBot
             
             if (depth > 0)
             {
-                moveScoreTable[move.RawValue + board.ZobristKey] = -eval;
+                moveScoreTable[move.RawValue ^ board.ZobristKey] = -eval - 900;
             }
             if (eval > b) // beta pruning
             {
-                //transpositionTable[key] = eval;
+                transpositionTable[key] = eval;
                 return eval;
             }
             if(eval > bestEval)
@@ -127,7 +129,7 @@ public class MyBot : IChessBot
                 }
             }
         }
-       // transpositionTable[key] = bestEval;
+        transpositionTable[key] = bestEval;
         return bestEval;
     }
 
@@ -196,7 +198,7 @@ public class MyBot : IChessBot
     /// </summary>
     public int GetMoveScore(Board board, Move move)
     {
-        if(moveScoreTable.TryGetValue(move.RawValue + board.ZobristKey, out var value))
+        if(moveScoreTable.TryGetValue(move.RawValue ^ board.ZobristKey, out var value))
         {
             return value;
         }
@@ -205,7 +207,7 @@ public class MyBot : IChessBot
             board.MakeMove(move);
             int score = Eval(board);
             board.UndoMove(move);
-            moveScoreTable[move.RawValue + board.ZobristKey] = score;
+            moveScoreTable[move.RawValue ^ board.ZobristKey] = score;
             return score;
         }
     }
@@ -328,7 +330,7 @@ public class MyBot : IChessBot
 
     public int GetMoveScoreNoEvaluating(Board board, Move move)
     {
-        if(moveScoreTable.TryGetValue(move.RawValue + board.ZobristKey, out var value))
+        if(moveScoreTable.TryGetValue(move.RawValue ^ board.ZobristKey, out var value))
         {
             return value;
         }
