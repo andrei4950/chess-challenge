@@ -6,7 +6,7 @@ using System.Data.Common;
 
 public class MyBot : IChessBot
 {
-    Dictionary <ulong, int> transpositionTable = new();
+   // Dictionary <ulong, int> transpositionTable = new();
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
     int nodes = 0; //DEBUG
@@ -25,17 +25,20 @@ public class MyBot : IChessBot
     public Move Think(Board board, Timer timer)
     {
         isEndgame = CountMaterialOfColour(board, true) + CountMaterialOfColour(board, false) < 2800;
-        int depth = 0;
+        int depth = 1;
         int initTime, endTime, bestEval;
         initTime = timer.MillisecondsRemaining;
         do
         {
+            moveScoreTable.Clear();
             depth++;
             currentEval = Eval(board) * (board.IsWhiteToMove ? 1 : -1);
             bestEval = MiniMax(board, depth, -inf, inf, false);
             endTime = timer.MillisecondsRemaining;
             Console.Write("Eval: "); //DEBUG
             Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
+            Console.Write(" nodes:  "); //DEBUG
+            Console.Write(nodes); //DEBUG
             Console.Write(" nodes/s :  "); //DEBUG
             Console.Write(nodes * 1000 / (initTime - endTime + 1)); //DEBUG
             Console.Write(" time elapsed: "); //DEBUG
@@ -92,7 +95,7 @@ public class MyBot : IChessBot
             bestEval = shallowEval; // do not go deeper if a player prefers to not capture anything
             if (bestEval > b) // beta pruning
             {
-                transpositionTable[key] = bestEval;
+                //transpositionTable[key] = bestEval;
                 return bestEval;
             }
             if (bestEval > a) // update alpha (the improvement is probably only minor)
@@ -106,10 +109,13 @@ public class MyBot : IChessBot
             int eval =  -MiniMax(board, depth - 1, -b, -a, move.IsCapture);
             board.UndoMove(move);
             
-            moveScoreTable[move.RawValue + board.ZobristKey] = -eval;
+            if (depth > 0)
+            {
+                moveScoreTable[move.RawValue + board.ZobristKey] = -eval;
+            }
             if (eval > b) // beta pruning
             {
-                transpositionTable[key] = eval;
+                //transpositionTable[key] = eval;
                 return eval;
             }
             if(eval > bestEval)
@@ -121,7 +127,7 @@ public class MyBot : IChessBot
                 }
             }
         }
-        transpositionTable[key] = bestEval;
+       // transpositionTable[key] = bestEval;
         return bestEval;
     }
 
@@ -130,14 +136,14 @@ public class MyBot : IChessBot
     /// </summary>
     public int Eval(Board board)
     {
-        ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
-        if(transpositionTable.TryGetValue(key, out var value))
-        {
-            return value;
-        }
+    //    ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
+      //  if(transpositionTable.TryGetValue(key, out var value))
+       // {
+       //     return value;
+        //}
         int eval = CountMaterialOfColour(board, board.IsWhiteToMove) - CountMaterialOfColour(board, !board.IsWhiteToMove);
         eval -= board.IsInCheck() ? 1 : 0;
-        transpositionTable.Add(key, eval);
+        //transpositionTable.Add(key, eval);
         return eval;
     }
 
@@ -262,7 +268,7 @@ public class MyBot : IChessBot
         return myString;
     }
 
-    public void MoveTableExplorer(Board board, int depth = 0)
+    /*public void MoveTableExplorer(Board board, int depth = 0)
     {
         while(true)
         {
@@ -352,5 +358,5 @@ public class MyBot : IChessBot
                 return moveInput;
             }
         }
-    }
+    }*/
 }
