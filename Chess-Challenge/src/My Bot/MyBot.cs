@@ -1,8 +1,6 @@
 ﻿using ChessChallenge.API;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data.Common;
 
 public class MyBot : IChessBot
 {
@@ -10,6 +8,7 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
     int nodes = 0; //DEBUG
+
     private bool isEndgame;
 
     private readonly int[] whitePawnDesiredPositions = { 0, 0, 0, 0, 0, 0, 0, 0, 
@@ -43,15 +42,11 @@ public class MyBot : IChessBot
             Console.Write(nodes * 1000 / (initTime - endTime + 1)); //DEBUG
             Console.Write(" at depth "); //DEBUG
             Console.WriteLine(depth); //DEBUG
-            //Console.WriteLine(MoveLineString(board)); //DEBUG
-            //MoveTableExplorer(board);
-            Move DEBUGbestMove = GetMoveLine(board)[0]; // DEBUG
         }
-        while(depth < 20); //DEBUG
-        //while((initTime - endTime) * 200 < endTime && depth < 20);
+        //while(depth < 20); //DEBUG
+        while((initTime - endTime) * 200 < endTime && depth < 20);
         Move bestMove = GetMoveLine(board)[0];
-        //Console.Write(bestMove.ToString()); //DEBUG
-        //Console.WriteLine(board.GetFenString()); //DEBUG
+        moveScoreTable.Clear();
         return bestMove;
     }
 
@@ -61,12 +56,12 @@ public class MyBot : IChessBot
     /// </summary>
     public int MiniMax(Board board, int depth, int a, int b, bool isLastMoveCapture, bool isQuiescenceSearch, bool wasInCheck)
     {
+        nodes++; // DEBUG
         // Check if node was visited before
         ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 3) ^ ((ulong)depth << 10)^ ((ulong)a << 18)^ ((ulong)b << 26) ^ (ulong)(isLastMoveCapture ? 1 : 0) ^ (ulong)(isQuiescenceSearch ? 2 : 0) ^ (ulong)(wasInCheck ? 4 : 0);
         if(transpositionTable.TryGetValue(key, out var value)) 
             return value;
 
-        nodes++; //DEBUG
         // Check if node is final node
         if (board.IsDraw()) 
             return 0;
