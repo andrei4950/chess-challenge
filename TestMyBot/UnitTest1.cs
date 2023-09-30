@@ -71,6 +71,24 @@ public class TestMyBot
     }
 
     [TestMethod]
+    public void TestTranspositionKey()
+    {
+    Board pos1 = Board.CreateBoardFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    Board pos2 = Board.CreateBoardFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1");
+    Board pos3 = Board.CreateBoardFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 5");
+    ulong key1 = pos1.ZobristKey ^ ((ulong)pos1.PlyCount);
+    ulong key2 = pos2.ZobristKey ^ ((ulong)pos2.PlyCount);
+    ulong key3 = pos3.ZobristKey ^ ((ulong)pos3.PlyCount);
+    ulong test1 = (ulong)1;
+    unchecked 
+    {
+        ulong test2;
+        test2 = (ulong)-1;
+        long test3 = (long)test2;
+    };
+    }
+
+    [TestMethod]
     public void TestMoveAlloc()
     {
         System.Span<Move> mySpan = stackalloc Move[128];
@@ -83,7 +101,7 @@ public class TestMyBot
     public void TestMiniMax()
     {
         string[] botMatchStartFens = ChessChallenge.Application.FileHelper.ReadResourceFile("Fens.txt").Split('\n').Where(fen => fen.Length > 0).ToArray();
-        string[] referenceOutput = File.ReadAllText("testminimax.txt").Split("\n");
+        string[] referenceOutput = File.ReadAllText("testminimax2.txt").Split("\n");
         string output = "";
         int maxDepth = 6;
         for (int i = 0; i < 100; i++)
