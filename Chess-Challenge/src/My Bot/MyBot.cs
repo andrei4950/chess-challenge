@@ -8,8 +8,7 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
     int nodes = 0;
-    private bool isEndgame;
-
+    bool isEndgame = false;
     private readonly int[] whitePawnDesiredPositions = { 0, 0, 0, 0, 0, 0, 0, 0, 
                                                 10, 10, 10, 0, 0, 10, 10, 10,
                                                 0, 5, 0, 11, 11, 0, 5, 0,
@@ -18,10 +17,9 @@ public class MyBot : IChessBot
                                                 20, 20, 20, 30, 30, 20, 20, 20,
                                                 40, 40, 40, 40, 40, 40, 40, 40,
                                                 40, 40, 40, 40, 40, 40, 40, 40};
-
+    private readonly int[] whitePawnDesiredRank = { 0, 0, 10, 20, 30, 40, 50, 60};
     public Move Think(Board board, Timer timer)
     {
-        isEndgame = CountMaterialOfColour(board, true) + CountMaterialOfColour(board, false) < 2800;
         int depth = 0;
         int initTime, endTime;
         initTime = timer.MillisecondsRemaining;
@@ -114,44 +112,6 @@ public class MyBot : IChessBot
     }
 
     /// <summary>
-    /// Returns evaluation of the position (high value if position is good for the player to move)
-    /// </summary>
-    public int Eval(Board board)
-    {
-        return CountMaterialOfColour(board, board.IsWhiteToMove) - CountMaterialOfColour(board, !board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
-    }
-
-    public int CountMaterialOfColour(Board board, bool colour)
-    {
-        PieceList pawns = board.GetPieceList(PieceType.Pawn, colour);
-        int eval = 100 * pawns.Count;
-        PieceList knights = board.GetPieceList(PieceType.Knight, colour);
-        eval += 300 * knights.Count;
-        PieceList bishops = board.GetPieceList(PieceType.Bishop, colour);
-        eval += 300 * bishops.Count;
-        PieceList rooks = board.GetPieceList(PieceType.Rook, colour);
-        eval += 500 * rooks.Count;
-        PieceList queens = board.GetPieceList(PieceType.Queen, colour);
-        eval += 900 * queens.Count;
-
-        // bonusess:
-        //pawns
-        for (int i = 0; i < pawns.Count; i++)
-        {
-            int index = pawns.GetPiece(i).Square.Index;
-            if (!colour)
-                index = 63 - index;
-            eval += whitePawnDesiredPositions[index];
-        }
-        //other pieces
-        eval += GetDistEvalBonus(board, knights);
-        eval += GetDistEvalBonus(board, bishops);
-        eval += GetDistEvalBonus(board, rooks);
-        eval += GetDistEvalBonus(board, queens);
-        return eval;
-    }
-
-    /// <summary>
     /// Sorts the moves based on move score
     /// </summary>
     public void SortMoves(Board board, ref Span<Move> moves)
@@ -168,6 +128,7 @@ public class MyBot : IChessBot
     /// Best efficiency obtained with iterative deepening
     /// Uses moveScoreTable
     /// </summary>
+
     public int GetMoveScore(Board board, Move move)
     {
         if(moveScoreTable.TryGetValue(move.RawValue ^ board.ZobristKey, out var value))
@@ -183,14 +144,66 @@ public class MyBot : IChessBot
             return score;
         }
     }
+
+    /// <summary>
+    /// Returns evaluation of the position (high value if position is good for the player to move)
+    /// </summary>
+    public int Eval(Board board)
+    {
+        int white = CountMaterial(board, board.IsWhiteToMove);
+        int black = CountMaterial(board, !board.IsWhiteToMove);
+        isEndgame = white + black < 2750;
+        return white - black + GetBonuses(board, board.IsWhiteToMove) - GetBonuses(board, !board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
+    }
+
+    public int CountMaterial(Board board, bool colour)
+    {
+        return 100 * board.GetPieceList(PieceType.Pawn, colour).Count
+         + 300 * board.GetPieceList(PieceType.Knight, colour).Count
+         + 300 * board.GetPieceList(PieceType.Bishop, colour).Count
+         + 500 * board.GetPieceList(PieceType.Rook, colour).Count
+         + 900 * board.GetPieceList(PieceType.Queen, colour).Count;
+    }
+
+    public int GetBonuses(Board board, bool colour)
+    {
+        int eval = 0;
+        // bonusess:
+        //pawns
+        PieceList pawns = board.GetPieceList(PieceType.Pawn, colour);
+        for (int i = 0; i < pawns.Count; i++)
+        {
+            if (isEndgame)
+            {
+                eval -= DistanceFromKing(board, pawns.GetPiece(i), colour) * 2;
+                int rank = pawns.GetPiece(i).Square.Rank;
+                if (!colour)
+                    rank = 7 - rank;
+                eval += whitePawnDesiredRank[rank];
+            }
+            else
+            {
+                int index = pawns.GetPiece(i).Square.Index;
+                if (!colour)
+                    index = 63 - index;
+                eval += whitePawnDesiredPositions[index];
+            }
+        }
+        //other pieces
+        eval += GetDistEvalBonus(board, board.GetPieceList(PieceType.Knight, colour));
+        eval += GetDistEvalBonus(board, board.GetPieceList(PieceType.Bishop, colour));
+        eval += GetDistEvalBonus(board, board.GetPieceList(PieceType.Rook, colour));
+        eval += GetDistEvalBonus(board, board.GetPieceList(PieceType.Queen, colour));
+        return eval;
+    }
     
-    public static int GetDistEvalBonus(Board board, PieceList pieceList)
+    public int GetDistEvalBonus(Board board, PieceList pieceList)
     {
         int bonus = 0;
         for (int i = 0; i < pieceList.Count; i++)
         {
-            bonus -= DistanceFromKing(board, pieceList.GetPiece(i), !pieceList.IsWhitePieceList) * 2;
-            if (board.PlyCount > 30)
+            bonus -= DistanceFromKing(board, pieceList.GetPiece(i), !pieceList.IsWhitePieceList);
+            if (isEndgame)
             {
                 bonus -= DistanceFromKing(board, pieceList.GetPiece(i), pieceList.IsWhitePieceList);
             }
