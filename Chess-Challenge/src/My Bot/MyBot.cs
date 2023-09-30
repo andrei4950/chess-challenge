@@ -7,6 +7,7 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> transpositionTable = new();
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
+    int nodes = 0;
     private bool isEndgame;
 
     private readonly int[] whitePawnDesiredPositions = { 0, 0, 0, 0, 0, 0, 0, 0, 
@@ -22,17 +23,25 @@ public class MyBot : IChessBot
     {
         isEndgame = CountMaterialOfColour(board, true) + CountMaterialOfColour(board, false) < 2800;
         int depth = 0;
-        int initTime, endTime, bestEval;
+        int initTime, endTime;
         initTime = timer.MillisecondsRemaining;
         do
         {
             transpositionTable.Clear();
             depth++;
-            bestEval = MiniMax(board, depth, -inf, inf, false);
+            MiniMax(board, depth, -inf, inf, false);
             endTime = timer.MillisecondsRemaining;
+            Console.Write(" nodes:  "); //DEBUG
+            Console.Write(nodes); //DEBUG
+            Console.Write(" time elapsed: "); //DEBUG
+            Console.Write(initTime - endTime); //DEBUG
+            Console.Write(" at depth "); //DEBUG
+            Console.WriteLine(depth); //DEBUG
         }
+        //while(depth < 20); //DEBUG
         while((initTime - endTime) * 200 < endTime && depth < 20);
         Move bestMove = GetMoveLine(board)[0];
+        moveScoreTable.Clear();
         return bestMove;
     }
 
@@ -42,12 +51,13 @@ public class MyBot : IChessBot
     /// </summary>
     public int MiniMax(Board board, int depth, int a, int b, bool isLastMoveCapture)
     {
+        nodes++; // DEBUG
         // Check if node was visited before
         ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(isLastMoveCapture ? 1 : 0) ^ ((ulong)depth << 8)^ ((ulong)a << 16)^ ((ulong)b << 24);
         if(transpositionTable.TryGetValue(key, out var value)) 
             return value;
 
-        // Check if node is final nodez
+        // Check if node is final node
         if (board.IsDraw()) 
             return 0;
 
@@ -86,10 +96,7 @@ public class MyBot : IChessBot
             int eval =  -MiniMax(board, depth - 1, -b, -a, move.IsCapture);
             board.UndoMove(move);
             
-            if (depth > 0)
-            {
-                moveScoreTable[move.RawValue ^ board.ZobristKey] = -eval - 900;
-            }
+            moveScoreTable[move.RawValue ^ board.ZobristKey] = -eval - 900;
             if (eval > b) // beta pruning
             {
                 transpositionTable[key] = eval;
