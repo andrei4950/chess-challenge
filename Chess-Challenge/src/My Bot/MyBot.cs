@@ -25,6 +25,7 @@ public class MyBot : IChessBot
         int depth = 0;
         int initTime, endTime;
         initTime = timer.MillisecondsRemaining;
+        int timeFactor = 200;
         do
         {
             transpositionTable.Clear();
@@ -38,9 +39,12 @@ public class MyBot : IChessBot
             Console.Write(initTime - endTime); //DEBUG
             Console.Write(" at depth "); //DEBUG
             Console.WriteLine(depth); //DEBUG*/
+            Eval();
+            if(isEndgame)
+                timeFactor = 100;
         }
         //while(depth < 20); //DEBUG
-        while((initTime - endTime) * 200 < endTime && depth < 20);
+        while((initTime - endTime) * timeFactor < endTime && depth < 20);
         System.Span<Move> moves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref moves);
         SortMoves(ref moves);
@@ -164,8 +168,8 @@ public class MyBot : IChessBot
     public int CountMaterial(bool colour)
     {
         return 100 * board.GetPieceList(PieceType.Pawn, colour).Count
-         + 300 * board.GetPieceList(PieceType.Knight, colour).Count
-         + 300 * board.GetPieceList(PieceType.Bishop, colour).Count
+         + 300 * (board.GetPieceList(PieceType.Knight, colour).Count
+         + board.GetPieceList(PieceType.Bishop, colour).Count)
          + 500 * board.GetPieceList(PieceType.Rook, colour).Count
          + 900 * board.GetPieceList(PieceType.Queen, colour).Count;
     }
