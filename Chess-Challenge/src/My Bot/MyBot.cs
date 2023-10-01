@@ -22,15 +22,12 @@ public class MyBot : IChessBot
     public Move Think(Board inputBoard, Timer timer)
     {
         board = inputBoard;
-        int depth = 0;
-        int initTime, endTime;
-        initTime = timer.MillisecondsRemaining;
+        int depth = -1;
         do
         {
             transpositionTable.Clear();
             depth++;
             MiniMax(depth, -inf, inf, false);
-            endTime = timer.MillisecondsRemaining;
             //Console.WriteLine(isEndgame); //DEBUG
             /*Console.Write("nodes:  "); //DEBUG
             Console.Write(nodes); //DEBUG
@@ -40,7 +37,7 @@ public class MyBot : IChessBot
             Console.WriteLine(depth); //DEBUG*/
         }
         //while(depth < 20); //DEBUG
-        while((initTime - endTime) * 200 < endTime && depth < 20);
+        while(timer.MillisecondsElapsedThisTurn * 200 < timer.MillisecondsRemaining && depth < 20);
         System.Span<Move> moves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref moves);
         SortMoves(ref moves);
@@ -72,7 +69,6 @@ public class MyBot : IChessBot
         // or if we reached depth limit
         if((depth <= 0 && !isLastMoveCapture) || depth <= -8)
             return shallowEval;
-
         
         //get available moves
         System.Span<Move> allMoves = stackalloc Move[128];
