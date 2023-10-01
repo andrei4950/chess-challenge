@@ -17,7 +17,7 @@ public class MyBot : IChessBot
                                                 40, 40, 40, 40, 40, 40, 40, 40,
                                                 40, 40, 40, 40, 40, 40, 40, 40};
     private readonly int[] whitePawnDesiredRank = { 0, 0, 10, 20, 30, 40, 50, 60};
-    Board board;
+    public Board board;
     //int nodes = 0;
     public Move Think(Board inputBoard, Timer timer)
     {
@@ -38,6 +38,7 @@ public class MyBot : IChessBot
             Console.Write(initTime - endTime); //DEBUG
             Console.Write(" at depth "); //DEBUG
             Console.WriteLine(depth); //DEBUG*/
+            Console.Write(depth); //#DEBUG
         }
         //while(depth < 20); //DEBUG
         while((initTime - endTime) * 200 < endTime && depth < 20);
@@ -45,6 +46,7 @@ public class MyBot : IChessBot
         board.GetLegalMovesNonAlloc(ref moves);
         SortMoves(ref moves);
         moveScoreTable.Clear();
+        Console.WriteLine(); //#DEBUG
         return moves[0];
     }
 
@@ -158,7 +160,7 @@ public class MyBot : IChessBot
         int white = CountMaterial(board.IsWhiteToMove);
         int black = CountMaterial(!board.IsWhiteToMove);
         isEndgame = white + black < 2750;
-        return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
+        return white - black - white * white / 15000 + black * black / 15000 + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
     }
 
     public int CountMaterial(bool colour)
@@ -175,7 +177,7 @@ public class MyBot : IChessBot
         int eval = 0;
         // bonusess:
         //pawns
-        if (isEndgame && 1 < board.GetKingSquare(colour).Rank && board.GetKingSquare(colour).Rank < 6 && 1 < board.GetKingSquare(colour).File && board.GetKingSquare(colour).File < 6) eval += 20;
+        //if (isEndgame && 1 < board.GetKingSquare(colour).Rank && board.GetKingSquare(colour).Rank < 6 && 1 < board.GetKingSquare(colour).File && board.GetKingSquare(colour).File < 6) eval += 20;
             
         PieceList pawns = board.GetPieceList(PieceType.Pawn, colour);
         for (int i = 0; i < pawns.Count; i++)

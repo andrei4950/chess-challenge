@@ -28,12 +28,14 @@ public class TestMyBot
     public void TestGetDistEvalBonus()
     {
         bot = new MyBot();
+        bot.board = endgame_pos;
         PieceList wrooks = endgame_pos.GetPieceList(PieceType.Rook, true);
-        int dist = MyBot.DistanceFromKing(endgame_pos, wrooks.GetPiece(0), false);
+        int dist = bot.DistanceFromKing(wrooks.GetPiece(0), false);
         Assert.AreEqual(dist, 13, 0.01, "Distance not measured correctly");
         
         PieceList bKnights = init_pos.GetPieceList(PieceType.Knight, false);
-        int bonus = bot.GetDistEvalBonus(init_pos, bKnights);
+        bot.board = init_pos;
+        int bonus = bot.GetDistEvalBonus(bKnights);
         Assert.AreEqual(bonus, -38, 0.01);
     }
 
@@ -41,11 +43,12 @@ public class TestMyBot
     public void TestMoveScore()
     {
         bot = new MyBot();
+        bot.board = midgame_pos;
         Move[] allMoves = midgame_pos.GetLegalMoves(true);
         //sort start
         int[] moveOrderKeys = new int[allMoves.Length];
         for (int i = 0; i < allMoves.Length; i++)
-            moveOrderKeys[i] = bot.GetMoveScore(midgame_pos, allMoves[i]);
+            moveOrderKeys[i] = bot.GetMoveScore(allMoves[i]);
         Array.Sort(moveOrderKeys, allMoves);
         //sort end
         Assert.AreEqual(allMoves[0], new Move("c3d5", midgame_pos));
@@ -56,19 +59,19 @@ public class TestMyBot
     public void TestEval()
     {
         bot = new MyBot();
-        Assert.AreEqual(bot.Eval(init_pos), 0);
-        Assert.AreEqual(bot.Eval(midgame_pos), 12);
-        Assert.AreEqual(bot.Eval(endgame_pos), 472);
-
-        Assert.AreEqual(bot.Eval(start_game_pos), -280);
-        Assert.AreEqual(start_game_pos.IsWhiteToMove, false);
-        ulong key1 = start_game_pos.ZobristKey ^ ((ulong)start_game_pos.PlyCount << 1) ^ (ulong)(start_game_pos.IsWhiteToMove ? 1 : 0);
-
-        Assert.AreEqual(start_game_pos.TrySkipTurn(), true);
-        Assert.AreEqual(bot.Eval(start_game_pos), 280);
-        Assert.AreEqual(start_game_pos.IsWhiteToMove, true);
-        ulong key2 = start_game_pos.ZobristKey ^ ((ulong)start_game_pos.PlyCount << 1) ^ (ulong)(start_game_pos.IsWhiteToMove ? 1 : 0);
-        Assert.AreNotEqual(key1, key2);
+        bot.board = init_pos;
+        Assert.AreEqual(0, bot.Eval());
+        bot.board = midgame_pos;
+        Assert.AreEqual(11, bot.Eval());
+        bot.board = Board.CreateBoardFromFEN("1k6/8/8/8/8/7K/8/7R w - - 0 50");
+        Assert.AreEqual(469, bot.Eval());
+        bot.board = Board.CreateBoardFromFEN("1k6/8/3R4/8/8/7K/8/8 w - - 0 50");
+        Assert.AreEqual(473, bot.Eval());
+        bot.board = Board.CreateBoardFromFEN("1k6/8/3RK3/8/8/8/8/8 w - - 0 50");
+        Assert.AreEqual(479, bot.Eval());
+        bot.board = Board.CreateBoardFromFEN("kr6/8/8/8/8/7K/8/1R5R w - - 0 50");
+        Assert.AreEqual(430, bot.Eval());
+        
     }
 
     [TestMethod]
@@ -110,13 +113,14 @@ public class TestMyBot
             string outputLine = String.Format("{0} ", i) + botMatchStartFens[i];
             bot = new MyBot();
             Board pos = Board.CreateBoardFromFEN(botMatchStartFens[i]);
+            bot.board = pos;
             int depth = 0;
             int inf = 30000;
             int bestEval;
             do
             {
                 depth++;
-                bestEval = bot.MiniMax(pos, depth, -inf, inf, false);
+                bestEval = bot.MiniMax(depth, -inf, inf, false);
                 outputLine += String.Format("Eval {0} depth {1} ", bestEval * (init_pos.IsWhiteToMove ? 1 : -1), depth);
             }
             while(depth < maxDepth); //DEBUG
