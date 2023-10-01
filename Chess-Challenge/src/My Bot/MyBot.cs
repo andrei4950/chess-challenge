@@ -18,7 +18,7 @@ public class MyBot : IChessBot
                                                 40, 40, 40, 40, 40, 40, 40, 40};
     private readonly int[] whitePawnDesiredRank = { 0, 0, 10, 20, 30, 40, 50, 60};
     Board board;
-    //int nodes = 0;
+    int nodes = 0; //#DEBUG
     public Move Think(Board inputBoard, Timer timer)
     {
         board = inputBoard;
@@ -39,7 +39,7 @@ public class MyBot : IChessBot
             Console.Write(" at depth "); //DEBUG*/
             Console.Write(depth); //#DEBUG */
         }
-        //while(depth < 20); //DEBUG
+        //while(depth < 200); //DEBUG
         while((initTime - endTime) * 200 < endTime && depth < 200);
         System.Span<Move> moves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref moves);
@@ -55,7 +55,7 @@ public class MyBot : IChessBot
     /// </summary>
     public int MiniMax(int depth, int a, int b, bool isLastMoveCapture)
     {
-        //nodes ++;
+        nodes ++; //#DEBUG
         // Check if node was visited before
         ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(isLastMoveCapture ? 1 : 0) ^ ((ulong)depth << 8)^ ((ulong)a << 16)^ ((ulong)b << 24);
         if(transpositionTable.TryGetValue(key, out var value)) 
@@ -159,7 +159,7 @@ public class MyBot : IChessBot
         int white = CountMaterial(board.IsWhiteToMove);
         int black = CountMaterial(!board.IsWhiteToMove);
         isEndgame = white + black < 2750;
-        return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
+        return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove);
     }
 
     public int CountMaterial(bool colour)
