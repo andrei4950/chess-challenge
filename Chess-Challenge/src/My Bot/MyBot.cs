@@ -28,7 +28,7 @@ public class MyBot : IChessBot
         do
         {
             transpositionTable.Clear();
-            depth++;
+            depth += 10;
             MiniMax(depth, -inf, inf, false);
             endTime = timer.MillisecondsRemaining;
             //Console.WriteLine(isEndgame); //DEBUG
@@ -36,15 +36,16 @@ public class MyBot : IChessBot
             Console.Write(nodes); //DEBUG
             Console.Write(" time elapsed: "); //DEBUG
             Console.Write(initTime - endTime); //DEBUG
-            Console.Write(" at depth "); //DEBUG
-            Console.WriteLine(depth); //DEBUG*/
+            Console.Write(" at depth "); //DEBUG*/
+            Console.Write(depth); //#DEBUG */
         }
         //while(depth < 20); //DEBUG
-        while((initTime - endTime) * 200 < endTime && depth < 20);
+        while((initTime - endTime) * 200 < endTime && depth < 200);
         System.Span<Move> moves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref moves);
         SortMoves(ref moves);
         moveScoreTable.Clear();
+        Console.WriteLine(); //#DEBUG
         return moves[0];
     }
 
@@ -70,7 +71,7 @@ public class MyBot : IChessBot
         int shallowEval = Eval();
 
         // or if we reached depth limit
-        if((depth <= 0 && !isLastMoveCapture) || depth <= -8)
+        if((depth <= 0 && !isLastMoveCapture) || depth <= -80)
             return shallowEval;
 
         
@@ -81,7 +82,7 @@ public class MyBot : IChessBot
         if (allMoves.Length == 0) 
             return shallowEval;
 
-        if (depth >= -6) SortMoves(ref allMoves);
+        if (depth >= -60) SortMoves(ref allMoves);
 
         int bestEval = -inf;
         if (depth <= 0)
@@ -96,7 +97,7 @@ public class MyBot : IChessBot
         foreach (Move move in allMoves)
         {
             board.MakeMove(move);
-            int eval =  -MiniMax(depth - 1, -b, -a, move.IsCapture);
+            int eval =  -MiniMax(depth - (board.IsInCheck() ? 5 : 10), -b, -a, move.IsCapture);
             board.UndoMove(move);
             
             moveScoreTable[move.RawValue ^ board.ZobristKey] = -eval - 900;
@@ -174,8 +175,7 @@ public class MyBot : IChessBot
     {
         int eval = 0;
         // bonusess:
-        //pawns
-        if (isEndgame && 1 < board.GetKingSquare(colour).Rank && board.GetKingSquare(colour).Rank < 6 && 1 < board.GetKingSquare(colour).File && board.GetKingSquare(colour).File < 6) eval += 20;
+        //if (isEndgame && 0 < board.GetKingSquare(colour).Rank && board.GetKingSquare(colour).Rank < 7 && 0 < board.GetKingSquare(colour).File && board.GetKingSquare(colour).File < 7) eval += 20;
             
         PieceList pawns = board.GetPieceList(PieceType.Pawn, colour);
         for (int i = 0; i < pawns.Count; i++)
