@@ -33,7 +33,7 @@ public class MyBot : IChessBot
             bestEval = MiniMax(board, depth, -inf, inf, false, false, true);
             endTime = timer.MillisecondsRemaining;
             Console.Write("Eval: "); //DEBUG
-            Console.Write(bestEval * (board.IsWhiteToMove ? 1 : -1)); //DEBUG
+            Console.Write(bestEval); //DEBUG
             Console.Write(" nodes visited:  "); //
             Console.Write(nodes); //DEBUG
             Console.Write(" time elapsed: "); //DEBUG
@@ -44,7 +44,7 @@ public class MyBot : IChessBot
             Console.WriteLine(depth); //DEBUG
         }
         //while(depth < 20); //DEBUG
-        while((initTime - endTime) * 200 < endTime && depth < 20);
+        while((initTime - endTime) * 300 < endTime && depth < 20);
         Move bestMove = GetMoveLine(board)[0];
         moveScoreTable.Clear();
         return bestMove;
@@ -79,7 +79,7 @@ public class MyBot : IChessBot
         // or if we reached depth limit
         if(depth <= 0)
             if (isQuiescenceSearch) return shallowEval;
-            else return StartQuiescenceSearch(board, a, b, wasInCheck);
+            else return MiniMax(board, 5, a, b, true, true, wasInCheck); // Quiescence search
         
         //get available moves
         System.Span<Move> allMoves = stackalloc Move[128];
@@ -119,21 +119,6 @@ public class MyBot : IChessBot
         }
         transpositionTable[key] = bestEval;
         return bestEval;
-    }
-
-    public int StartQuiescenceSearch(Board board, int a, int b, bool wasInCheck)
-    {
-        /*int depth = 0;
-        int bestEval;
-        do
-        {
-            depth++;
-            bestEval = MiniMax(board, depth, a, b, true, true, wasInCheck);
-            //Move bestMove = GetMoveLine(board)[0]; // DEBUG
-        }
-        while(depth < 8); 
-        return bestEval;*/
-        return MiniMax(board, 8, a, b, true, true, wasInCheck);
     }
 
     /// <summary>
