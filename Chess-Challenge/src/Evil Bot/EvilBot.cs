@@ -23,29 +23,18 @@ using System;
                                                 40, 40, 40, 40, 40, 40, 40, 40};
     private readonly int[] whitePawnDesiredRank = { 0, 0, 10, 20, 30, 40, 50, 60};
     Board board;
-    //int nodes = 0;
+    int nodes = 0; //#DEBUG
     public Move Think(Board inputBoard, Timer timer)
     {
         board = inputBoard;
         int depth = 0;
-        int initTime, endTime;
-        initTime = timer.MillisecondsRemaining;
         do
         {
             transpositionTable.Clear();
-            depth++;
+            depth += 10;
             MiniMax(depth, -inf, inf, false);
-            endTime = timer.MillisecondsRemaining;
-            //Console.WriteLine(isEndgame); //DEBUG
-            /*Console.Write("nodes:  "); //DEBUG
-            Console.Write(nodes); //DEBUG
-            Console.Write(" time elapsed: "); //DEBUG
-            Console.Write(initTime - endTime); //DEBUG
-            Console.Write(" at depth "); //DEBUG
-            Console.WriteLine(depth); //DEBUG*/
         }
-        //while(depth < 20); //DEBUG
-        while((initTime - endTime) * 200 < endTime && depth < 20);
+        while(timer.MillisecondsElapsedThisTurn * 200 < timer.MillisecondsRemaining && depth < 200);
         System.Span<Move> moves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref moves);
         SortMoves(ref moves);
@@ -59,7 +48,7 @@ using System;
     /// </summary>
     public int MiniMax(int depth, int a, int b, bool isLastMoveCapture)
     {
-        //nodes ++;
+        nodes ++; //#DEBUG
         // Check if node was visited before
         ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(isLastMoveCapture ? 1 : 0) ^ ((ulong)depth << 8)^ ((ulong)a << 16)^ ((ulong)b << 24);
         if(transpositionTable.TryGetValue(key, out var value)) 
@@ -75,7 +64,7 @@ using System;
         int shallowEval = Eval();
 
         // or if we reached depth limit
-        if((depth <= 0 && !isLastMoveCapture) || depth <= -8)
+        if((depth <= 0 && !isLastMoveCapture) || depth <= -60)
             return shallowEval;
 
         
@@ -86,7 +75,7 @@ using System;
         if (allMoves.Length == 0) 
             return shallowEval;
 
-        if (depth >= -6) SortMoves(ref allMoves);
+        if (depth >= -50) SortMoves(ref allMoves);
 
         int bestEval = -inf;
         if (depth <= 0)
@@ -101,7 +90,7 @@ using System;
         foreach (Move move in allMoves)
         {
             board.MakeMove(move);
-            int eval =  -MiniMax(depth - 1, -b, -a, move.IsCapture);
+            int eval =  -MiniMax(depth - (board.IsInCheck() ? 5 : 10), -b, -a, move.IsCapture);
             board.UndoMove(move);
             
             moveScoreTable[move.RawValue ^ board.ZobristKey] = -eval - 900;
@@ -163,7 +152,7 @@ using System;
         int white = CountMaterial(board.IsWhiteToMove);
         int black = CountMaterial(!board.IsWhiteToMove);
         isEndgame = white + black < 2750;
-        return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
+        return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove);
     }
 
     public int CountMaterial(bool colour)
@@ -179,8 +168,7 @@ using System;
     {
         int eval = 0;
         // bonusess:
-        //pawns
-        //if (isEndgame && 1 < board.GetKingSquare(colour).Rank && board.GetKingSquare(colour).Rank < 6 && 1 < board.GetKingSquare(colour).File && board.GetKingSquare(colour).File < 6) eval += 20;
+        //if (isEndgame && 0 < board.GetKingSquare(colour).Rank && board.GetKingSquare(colour).Rank < 7 && 0 < board.GetKingSquare(colour).File && board.GetKingSquare(colour).File < 7) eval += 20;
             
         PieceList pawns = board.GetPieceList(PieceType.Pawn, colour);
         for (int i = 0; i < pawns.Count; i++)
