@@ -123,7 +123,9 @@ public class MyBot : IChessBot
         int white = CountMaterial(board.IsWhiteToMove);
         int black = CountMaterial(!board.IsWhiteToMove);
         isEndgame = white + black < 2750;
-        return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
+        //curved eval
+        //return white - black - white * white / 30000 + black * black / 30000 + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
+        return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove);
     }
 
     public int CountMaterial(bool colour)
