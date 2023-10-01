@@ -141,14 +141,7 @@ public class MyBot : IChessBot
     /// </summary>
     public int Eval(Board board)
     {
-        /*ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
-        if(transpositionTable.TryGetValue(key, out var value))
-        {
-            return value;
-        }*/
         int eval = CountMaterialOfColour(board, board.IsWhiteToMove) - CountMaterialOfColour(board, !board.IsWhiteToMove);
-        eval -= board.IsInCheck() ? 200 : 0;
-        //transpositionTable.Add(key, eval);
         return eval;
     }
 
@@ -233,16 +226,6 @@ public class MyBot : IChessBot
         return Math.Abs(board.GetKingSquare(kingColour).File - piece.Square.File) + Math.Abs(board.GetKingSquare(kingColour).Rank - piece.Square.Rank);
     }
 
-    public bool IsQuiet(Move move, Board board)
-    {
-        if (move.IsCapture) return false;
-        board.MakeMove(move);
-        bool isNotQuiet = board.IsInCheck();
-        board.UndoMove(move);
-        return !isNotQuiet;
-    }
-
-
     // 176 tokens for GetMoveLine and MoveLineString
     /// <summary>
     /// Debug function used for generating the best-play predicted move line
@@ -266,111 +249,3 @@ public class MyBot : IChessBot
         }
         return moveLine;
     }
-    
-    /// <summary>
-    /// Returns a move line string
-    /// Used for debigging
-    /// Makes use of GetMoveLine
-    /// </summary>
-    public string MoveLineString(Board startingBoard)
-    {
-        string myString = "";
-        foreach(Move move in GetMoveLine(startingBoard))
-        {
-            myString += move.ToString().Split(' ')[1] + ' ';
-        }
-        return myString;
-    }
-
-    /*public void MoveTableExplorer(Board board, int depth = 0)
-    {
-        while(true)
-        {
-            DisplayNode(board, depth);
-            Move move = TakeCommand(board);
-            if(move != Move.NullMove)
-            {
-                depth ++;
-                board.MakeMove(move);
-                MoveTableExplorer(board, depth);
-                board.UndoMove(move);
-                depth --;
-            }
-            else break;
-        }
-    }
-
-    /*public void DisplayNode(Board board, int depth)
-    {
-        Console.Write("Depth: "); //DEBUG
-        Console.WriteLine(depth); //DEBUG
-        Console.Write("Absolute eval: ");
-        ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(board.IsWhiteToMove ? 1 : 0);
-        if(transpositionTable.TryGetValue(key, out var value))
-        {
-            Console.Write(value * (board.IsWhiteToMove ? 1 : -1));
-        }
-        else
-        {
-            Console.Write("NOT CASHED");
-        }
-        Console.Write("   ");
-        Console.WriteLine(board.GetFenString());
-        Move[] moves = board.GetLegalMoves();
-
-        //sort start
-        int[] moveOrderKeys = new int[moves.Length];
-        for (int i = 0; i < moves.Length; i++)
-            moveOrderKeys[i] = GetMoveScoreNoEvaluating(board, moves[i]);
-        Array.Sort(moveOrderKeys, moves);
-
-        for(int i = 0; i < moveOrderKeys.Length; i++)
-        {
-            Console.Write(moves[i].ToString().Split(' ')[1]);
-            Console.Write("   ");
-            int score = moveOrderKeys[i];
-            if (score == 33000)
-            {
-                Console.WriteLine("NOT CASHED");
-            }
-            else
-            {
-                Console.WriteLine(score);
-            }
-        }
-    }*/
-
-    public int GetMoveScoreNoEvaluating(Board board, Move move)
-    {
-        if(moveScoreTable.TryGetValue(move.RawValue ^ board.ZobristKey, out var value))
-        {
-            return value;
-        }
-        else
-        {
-            return 33000;
-        }
-    }
-
-    public Move TakeCommand(Board board)
-    {
-        while (true)
-        {
-            string input = Console.ReadLine();
-            if (input == "..")
-            {
-                return Move.NullMove;
-            }
-            Move[] moves = board.GetLegalMoves();
-            Move moveInput = new Move(input, board);
-            if (Array.IndexOf(moves, moveInput) == -1)
-            {
-                Console.WriteLine("Move not available. Try again");
-            }
-            else
-            {
-                return moveInput;
-            }
-        }
-    }
-}
