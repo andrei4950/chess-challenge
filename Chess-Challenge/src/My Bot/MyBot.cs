@@ -7,7 +7,8 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> transpositionTable = new();
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
-    int nodes = 0; //DEBUG
+    int nodes = 0; //#DEBUG
+    Board board;
 
     private bool isEndgame;
 
@@ -19,42 +20,37 @@ public class MyBot : IChessBot
                                                 20, 20, 20, 30, 30, 20, 20, 20,
                                                 40, 40, 40, 40, 40, 40, 40, 40,
                                                 40, 40, 40, 40, 40, 40, 40, 40};
-
-    public Move Think(Board board, Timer timer)
+    private readonly int[] whitePawnDesiredRank = { 0, 0, 10, 20, 30, 40, 50, 60};
+    public Move Think(Board inputBoard, Timer timer)
     {
-        isEndgame = CountMaterialOfColour(board, true) + CountMaterialOfColour(board, false) < 2800;
+        board = inputBoard;
         int depth = 0;
-        int initTime, endTime, bestEval;
-        initTime = timer.MillisecondsRemaining;
+
         do
         {
             transpositionTable.Clear();
             depth++;
-            bestEval = MiniMax(board, depth, -inf, inf, false, false, true);
-            endTime = timer.MillisecondsRemaining;
-            Console.Write("Eval: "); //DEBUG
-            Console.Write(bestEval); //DEBUG
-            Console.Write(" nodes visited:  "); //
-            Console.Write(nodes); //DEBUG
-            Console.Write(" time elapsed: "); //DEBUG
-            Console.Write(initTime - endTime); //DEBUG
-            Console.Write(" nodes/s :  "); //DEBUG
-            Console.Write(nodes * 1000 / (initTime - endTime + 1)); //DEBUG
-            Console.Write(" at depth "); //DEBUG
-            Console.WriteLine(depth); //DEBUG
+            MiniMax(depth, -inf, inf, false, false, true);
+            Console.Write(" nodes visited:  "); //#DEBUG
+            Console.Write(nodes); //#DEBUG
+            Console.Write(" at depth "); //#DEBUG
+            Console.WriteLine(depth); //#DEBUG
         }
-        //while(depth < 20); //DEBUG
-        while((initTime - endTime) * 300 < endTime && depth < 20);
-        Move bestMove = GetMoveLine(board)[0];
+        //while(depth < 20); //#DEBUG
+        while(timer.MillisecondsElapsedThisTurn * 250 < timer.MillisecondsRemaining && depth < 10);
+
+        System.Span<Move> moves = stackalloc Move[128];
+        board.GetLegalMovesNonAlloc(ref moves);
+        SortMoves(ref moves);
         moveScoreTable.Clear();
-        return bestMove;
+        return moves[0];
     }
 
     /// <summary>
     /// Returns evaluation of the position calculated at specified depth (high value if position is good for the player to move)
     /// Makes use of transpositionTable for improved efficiency and moveScoreTable for sorting the moves (also better efficiency)
     /// </summary>
-    public int MiniMax(Board board, int depth, int a, int b, bool isLastMoveCapture, bool isQuiescenceSearch, bool wasInCheck)
+    public int MiniMax(int depth, int a, int b, bool isLastMoveCapture, bool isQuiescenceSearch, bool wasInCheck)
     {
         nodes++; // DEBUG
         // Check if node was visited before
@@ -74,23 +70,21 @@ public class MyBot : IChessBot
         if (isQuiescenceSearch && !isLastMoveCapture && !isInCheck && !wasInCheck) // only want captures and checks in quiescence search (or getting out of check)
             return inf;
   
-        int shallowEval = CountMaterialOfColour(board, board.IsWhiteToMove) - CountMaterialOfColour(board, !board.IsWhiteToMove);
-
         // or if we reached depth limit
         if(depth <= 0)
-            if (isQuiescenceSearch) return shallowEval;
-            else return MiniMax(board, 5, a, b, true, true, wasInCheck); // Quiescence search
+            if (isQuiescenceSearch) return Eval();
+            else return MiniMax(5, a, b, true, true, wasInCheck); // Quiescence search
         
         //get available moves
         System.Span<Move> allMoves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref allMoves);
 
-        SortMoves(board, ref allMoves);
+        SortMoves(ref allMoves);
 
         int bestEval = -inf;
         if (isQuiescenceSearch && !isInCheck)
         {
-            bestEval = shallowEval; // do not go deeper if a player prefers to not capture anything
+            bestEval = Eval(); // do not go deeper if a player prefers to not capture anything
             if (bestEval > b) // beta pruning
             {
                 return bestEval;
@@ -99,7 +93,7 @@ public class MyBot : IChessBot
         foreach (Move move in allMoves)
         {
             board.MakeMove(move);
-            int eval = -MiniMax(board, depth - 1, -b, -a, move.IsCapture, isQuiescenceSearch, isInCheck);
+            int eval = -MiniMax(depth - 1, -b, -a, move.IsCapture, isQuiescenceSearch, isInCheck);
             board.UndoMove(move);
             
             moveScoreTable[move.RawValue ^ board.ZobristKey] = -eval - 900;
@@ -124,50 +118,69 @@ public class MyBot : IChessBot
     /// <summary>
     /// Returns evaluation of the position (high value if position is good for the player to move)
     /// </summary>
-    public int Eval(Board board)
+    public int Eval()
     {
-        int eval = CountMaterialOfColour(board, board.IsWhiteToMove) - CountMaterialOfColour(board, !board.IsWhiteToMove);
-        return eval;
+        int white = CountMaterial(board.IsWhiteToMove);
+        int black = CountMaterial(!board.IsWhiteToMove);
+        isEndgame = white + black < 2750;
+        return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
     }
 
-    public int CountMaterialOfColour(Board board, bool colour)
+    public int CountMaterial(bool colour)
     {
-        PieceList pawns = board.GetPieceList(PieceType.Pawn, colour);
-        int eval = 100 * pawns.Count;
-        PieceList knights = board.GetPieceList(PieceType.Knight, colour);
-        eval += 300 * knights.Count;
-        PieceList bishops = board.GetPieceList(PieceType.Bishop, colour);
-        eval += 300 * bishops.Count;
-        PieceList rooks = board.GetPieceList(PieceType.Rook, colour);
-        eval += 500 * rooks.Count;
-        PieceList queens = board.GetPieceList(PieceType.Queen, colour);
-        eval += 900 * queens.Count;
+        return 100 * board.GetPieceList(PieceType.Pawn, colour).Count
+         + 300 * board.GetPieceList(PieceType.Knight, colour).Count
+         + 300 * board.GetPieceList(PieceType.Bishop, colour).Count
+         + 500 * board.GetPieceList(PieceType.Rook, colour).Count
+         + 900 * board.GetPieceList(PieceType.Queen, colour).Count;
+    }
 
+
+    /// <summary>
+    /// Returns evaluation of the position (high value if position is good for the player to move)
+    /// </summary>
+    public int GetBonuses(bool colour)
+    {
+        int eval = 0;
         // bonusess:
         //pawns
+        //if (isEndgame && 1 < board.GetKingSquare(colour).Rank && board.GetKingSquare(colour).Rank < 6 && 1 < board.GetKingSquare(colour).File && board.GetKingSquare(colour).File < 6) eval += 20;
+            
+        PieceList pawns = board.GetPieceList(PieceType.Pawn, colour);
         for (int i = 0; i < pawns.Count; i++)
         {
-            int index = pawns.GetPiece(i).Square.Index;
-            if (!colour)
-                index = 63 - index;
-            eval += whitePawnDesiredPositions[index];
+            if (isEndgame)
+            {
+                eval -= DistanceFromKing(pawns.GetPiece(i), colour) * 2;
+                int rank = pawns.GetPiece(i).Square.Rank;
+                if (!colour)
+                    rank = 7 - rank;
+                eval += whitePawnDesiredRank[rank];
+            }
+            else
+            {
+                int index = pawns.GetPiece(i).Square.Index;
+                if (!colour)
+                    index = 63 - index;
+                eval += whitePawnDesiredPositions[index];
+            }
         }
         //other pieces
-        eval += GetDistEvalBonus(board, knights);
-        eval += GetDistEvalBonus(board, bishops);
-        eval += GetDistEvalBonus(board, rooks);
-        eval += GetDistEvalBonus(board, queens);
+        eval += GetDistEvalBonus(board.GetPieceList(PieceType.Knight, colour));
+        eval += GetDistEvalBonus(board.GetPieceList(PieceType.Bishop, colour));
+        eval += GetDistEvalBonus(board.GetPieceList(PieceType.Rook, colour));
+        eval += GetDistEvalBonus(board.GetPieceList(PieceType.Queen, colour));
         return eval;
     }
 
     /// <summary>
     /// Sorts the moves based on move score
     /// </summary>
-    public void SortMoves(Board board, ref Span<Move> moves)
+    public void SortMoves(ref Span<Move> moves)
     {
         System.Span<int> moveOrderKeys = stackalloc int[moves.Length];
         for (int i = 0; i < moves.Length; i++)
-            moveOrderKeys[i] = GetMoveScore(board, moves[i]);
+            moveOrderKeys[i] = GetMoveScore(moves[i]);
         MemoryExtensions.Sort(moveOrderKeys, moves);
     }
 
@@ -177,7 +190,7 @@ public class MyBot : IChessBot
     /// Best efficiency obtained with iterative deepening
     /// Uses moveScoreTable
     /// </summary>
-    public int GetMoveScore(Board board, Move move)
+    public int GetMoveScore(Move move)
     {
         if(moveScoreTable.TryGetValue(move.RawValue ^ board.ZobristKey, out var value))
         {
@@ -186,52 +199,28 @@ public class MyBot : IChessBot
         else
         {
             board.MakeMove(move);
-            int score = Eval(board);
+            int score = Eval();
             board.UndoMove(move);
             moveScoreTable[move.RawValue ^ board.ZobristKey] = score;
             return score;
         }
     }
     
-    public static int GetDistEvalBonus(Board board, PieceList pieceList)
+    public int GetDistEvalBonus(PieceList pieceList)
     {
         int bonus = 0;
         for (int i = 0; i < pieceList.Count; i++)
         {
-            bonus -= DistanceFromKing(board, pieceList.GetPiece(i), !pieceList.IsWhitePieceList) * 2;
-            if (board.PlyCount > 30)
+            bonus -= DistanceFromKing(pieceList.GetPiece(i), !pieceList.IsWhitePieceList);
+            if (isEndgame)
             {
-                bonus -= DistanceFromKing(board, pieceList.GetPiece(i), pieceList.IsWhitePieceList);
+                bonus -= DistanceFromKing(pieceList.GetPiece(i), pieceList.IsWhitePieceList);
             }
         }
         return bonus;
     }
-    public static int DistanceFromKing(Board board, Piece piece, bool kingColour)
+    public int DistanceFromKing(Piece piece, bool kingColour)
     {
         return Math.Abs(board.GetKingSquare(kingColour).File - piece.Square.File) + Math.Abs(board.GetKingSquare(kingColour).Rank - piece.Square.Rank);
-    }
-
-    // 176 tokens for GetMoveLine and MoveLineString
-    /// <summary>
-    /// Debug function used for generating the best-play predicted move line
-    /// </summary>
-    public Move[] GetMoveLine(Board startingBoard)
-    {
-        Board board = Board.CreateBoardFromFEN(startingBoard.GetFenString()); // make a copy of the board (we do not undo moves)
-        Move[] moveLine = new Move[50];
-        for(int j = 0; j < moveLine.Length; j++)
-        {
-            System.Span<Move> moves = stackalloc Move[128];
-            board.GetLegalMovesNonAlloc(ref moves);
-            if (moves.Length == 0)
-            {
-                Array.Resize(ref moveLine, j);
-                break;
-            }
-            SortMoves(board, ref moves);
-            moveLine[j] = moves[0];
-            board.MakeMove(moves[0]);
-        }
-        return moveLine;
     }
 }
