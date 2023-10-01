@@ -1,4 +1,6 @@
 ﻿using ChessChallenge.API;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Raylib_cs;
 using System;
 using System.Collections.Generic;
 
@@ -8,6 +10,7 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
     bool isEndgame = false;
+    int material = 0;
     private readonly int[] whitePawnDesiredPositions = { 0, 0, 0, 0, 0, 0, 0, 0, 
                                                 10, 10, 10, 0, 0, 10, 10, 10,
                                                 0, 5, 0, 11, 11, 0, 5, 0,
@@ -40,8 +43,8 @@ public class MyBot : IChessBot
             Console.Write(" at depth "); //DEBUG
             Console.WriteLine(depth); //DEBUG*/
             Eval();
-            if(isEndgame)
-                timeFactor = 100;
+            timeFactor = material / 100 + 15;
+            timeFactor = timeFactor > 200 ? 200 : timeFactor;
         }
         //while(depth < 20); //DEBUG
         while((initTime - endTime) * timeFactor < endTime && depth < 20);
@@ -161,7 +164,8 @@ public class MyBot : IChessBot
     {
         int white = CountMaterial(board.IsWhiteToMove);
         int black = CountMaterial(!board.IsWhiteToMove);
-        isEndgame = white + black < 2750;
+        material = white + black;
+        isEndgame = material < 2750;
         return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
     }
 
