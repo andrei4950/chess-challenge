@@ -43,15 +43,14 @@ public class MyBot : IChessBot
             Console.Write(" at depth "); //DEBUG
             Console.WriteLine(depth); //DEBUG*/
             Eval();
-            timeFactor = material / 100 + 15;
-            timeFactor = timeFactor > 200 ? 200 : timeFactor;
+            timeFactor = 100 - material / 35 + material * material / 180000;
         }
         //while(depth < 20); //DEBUG
         while((initTime - endTime) * timeFactor < endTime && depth < 20);
         System.Span<Move> moves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref moves);
         SortMoves(ref moves);
-        moveScoreTable.Clear();
+        //moveScoreTable.Clear();
         return moves[0];
     }
 
