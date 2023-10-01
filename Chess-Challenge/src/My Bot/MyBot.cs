@@ -23,14 +23,11 @@ public class MyBot : IChessBot
     {
         board = inputBoard;
         int depth = 0;
-        int initTime, endTime;
-        initTime = timer.MillisecondsRemaining;
         do
         {
             transpositionTable.Clear();
             depth += 10;
             MiniMax(depth, -inf, inf, false);
-            endTime = timer.MillisecondsRemaining;
             //Console.WriteLine(isEndgame); //DEBUG
             /*Console.Write("nodes:  "); //DEBUG
             Console.Write(nodes); //DEBUG
@@ -40,7 +37,7 @@ public class MyBot : IChessBot
             Console.Write(depth); //#DEBUG */
         }
         //while(depth < 200); //DEBUG
-        while((initTime - endTime) * 200 < endTime && depth < 200);
+        while(timer.MillisecondsElapsedThisTurn * 200 < timer.MillisecondsRemaining && depth < 200);
         System.Span<Move> moves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref moves);
         SortMoves(ref moves);
@@ -71,7 +68,7 @@ public class MyBot : IChessBot
         int shallowEval = Eval();
 
         // or if we reached depth limit
-        if((depth <= 0 && !isLastMoveCapture) || depth <= -80)
+        if((depth <= 0 && !isLastMoveCapture) || depth <= -60)
             return shallowEval;
 
         
@@ -82,7 +79,7 @@ public class MyBot : IChessBot
         if (allMoves.Length == 0) 
             return shallowEval;
 
-        if (depth >= -60) SortMoves(ref allMoves);
+        if (depth >= -50) SortMoves(ref allMoves);
 
         int bestEval = -inf;
         if (depth <= 0)
