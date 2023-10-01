@@ -33,6 +33,8 @@ public class MyBot : IChessBot
             MiniMax(depth, -inf, inf, false, false, true);
             Console.Write(" nodes visited:  "); //#DEBUG
             Console.Write(nodes); //#DEBUG
+            Console.Write(" time "); //#DEBUG
+            Console.Write(timer.MillisecondsElapsedThisTurn); //#DEBUG
             Console.Write(" at depth "); //#DEBUG
             Console.WriteLine(depth); //#DEBUG
         }
@@ -116,6 +118,39 @@ public class MyBot : IChessBot
     }
 
     /// <summary>
+    /// Sorts the moves based on move score
+    /// </summary>
+    public void SortMoves(ref Span<Move> moves)
+    {
+        System.Span<int> moveOrderKeys = stackalloc int[moves.Length];
+        for (int i = 0; i < moves.Length; i++)
+            moveOrderKeys[i] = GetMoveScore(moves[i]);
+        MemoryExtensions.Sort(moveOrderKeys, moves);
+    }
+
+    /// <summary>
+    /// Returns evaluation of the move 
+    /// Good moves recieve lower values
+    /// Best efficiency obtained with iterative deepening
+    /// Uses moveScoreTable
+    /// </summary>
+    public int GetMoveScore(Move move)
+    {
+        if(moveScoreTable.TryGetValue(move.RawValue ^ board.ZobristKey, out var value))
+        {
+            return value;
+        }
+        else
+        {
+            board.MakeMove(move);
+            int score = Eval();
+            board.UndoMove(move);
+            moveScoreTable[move.RawValue ^ board.ZobristKey] = score;
+            return score;
+        }
+    }
+
+    /// <summary>
     /// Returns evaluation of the position (high value if position is good for the player to move)
     /// </summary>
     public int Eval()
@@ -136,7 +171,6 @@ public class MyBot : IChessBot
          + 500 * board.GetPieceList(PieceType.Rook, colour).Count
          + 900 * board.GetPieceList(PieceType.Queen, colour).Count;
     }
-
 
     /// <summary>
     /// Returns evaluation of the position (high value if position is good for the player to move)
@@ -172,40 +206,19 @@ public class MyBot : IChessBot
         eval += GetDistEvalBonus(board.GetPieceList(PieceType.Bishop, colour));
         eval += GetDistEvalBonus(board.GetPieceList(PieceType.Rook, colour));
         eval += GetDistEvalBonus(board.GetPieceList(PieceType.Queen, colour));
-        return eval;
+        return eval + GetControlBonus();
     }
 
-    /// <summary>
-    /// Sorts the moves based on move score
-    /// </summary>
-    public void SortMoves(ref Span<Move> moves)
+    int GetControlBonus()
     {
-        System.Span<int> moveOrderKeys = stackalloc int[moves.Length];
-        for (int i = 0; i < moves.Length; i++)
-            moveOrderKeys[i] = GetMoveScore(moves[i]);
-        MemoryExtensions.Sort(moveOrderKeys, moves);
-    }
-
-    /// <summary>
-    /// Returns evaluation of the move 
-    /// Good moves recieve lower values
-    /// Best efficiency obtained with iterative deepening
-    /// Uses moveScoreTable
-    /// </summary>
-    public int GetMoveScore(Move move)
-    {
-        if(moveScoreTable.TryGetValue(move.RawValue ^ board.ZobristKey, out var value))
+        int bonus = board.GetLegalMoves().Length;
+        if(board.TrySkipTurn())
         {
-            return value;
+            bonus -= board.GetLegalMoves().Length;
+            board.UndoSkipTurn();
+            return bonus;
         }
-        else
-        {
-            board.MakeMove(move);
-            int score = Eval();
-            board.UndoMove(move);
-            moveScoreTable[move.RawValue ^ board.ZobristKey] = score;
-            return score;
-        }
+        return -20;
     }
     
     public int GetDistEvalBonus(PieceList pieceList)
