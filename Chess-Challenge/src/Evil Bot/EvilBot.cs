@@ -38,7 +38,7 @@ using System;
         System.Span<Move> moves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref moves);
         SortMoves(ref moves);
-        moveScoreTable.Clear();
+        //moveScoreTable.Clear();
         return moves[0];
     }
 
