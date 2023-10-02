@@ -8,14 +8,12 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
     bool isEndgame = false;
-    int material = 0;
     private readonly int[] whitePawnDesiredPositions = { 0, 0, 0, 0, 0, 0, 0, 0, 
                                                 10, 10, 10, 0, 0, 10, 10, 10,
                                                 0, 5, 0, 11, 11, 0, 5, 0,
                                                 0, 0, 0, 21, 21, 0, 0, 0,
                                                 5, 5, 5, 25, 25, 5, 5, 5,
                                                 20, 20, 20, 30, 30, 20, 20, 20,
-                                                40, 40, 40, 40, 40, 40, 40, 40,
                                                 40, 40, 40, 40, 40, 40, 40, 40};
     private readonly int[] whitePawnDesiredRank = { 0, 0, 10, 20, 30, 40, 50, 60};
     Board board;
@@ -30,7 +28,7 @@ public class MyBot : IChessBot
             MiniMax(depth, -inf, inf, false);
             Eval();
         }
-        while(timer.MillisecondsElapsedThisTurn * (100 - material / 35 + material * material / 180000) < timer.MillisecondsRemaining && depth < 200);
+        while(timer.MillisecondsElapsedThisTurn * 200 < timer.MillisecondsRemaining && depth < 200);
         System.Span<Move> moves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref moves);
         SortMoves(ref moves);
@@ -84,10 +82,22 @@ public class MyBot : IChessBot
             if (bestEval > a) // update alpha (the improvement is probably only minor)
                 a = bestEval;
         }
+        bool isPV = true;
         foreach (Move move in allMoves)
         {
             board.MakeMove(move);
-            int eval =  -MiniMax(depth - (board.IsInCheck() ? 5 : 10), -b, -a, move.IsCapture);
+            int eval;
+            if(isPV)
+            {
+                eval = -MiniMax(depth - (board.IsInCheck() ? 5 : 10), -b, -a, move.IsCapture);
+                isPV = false;
+            }
+            else
+            {
+                eval = -MiniMax(depth - (board.IsInCheck() ? 5 : 10), - a - 1, -a, move.IsCapture);
+                if (eval > a)
+                    eval = -MiniMax(depth - (board.IsInCheck() ? 5 : 10), -b, -a, move.IsCapture);
+            }
             board.UndoMove(move);
             
             moveScoreTable[move.RawValue ^ board.ZobristKey] = -eval - 900;
@@ -148,8 +158,7 @@ public class MyBot : IChessBot
     {
         int white = CountMaterial(board.IsWhiteToMove);
         int black = CountMaterial(!board.IsWhiteToMove);
-        material = white + black;
-        isEndgame = material < 2750;
+        isEndgame = white + black < 2750;
         return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove);
     }
 
