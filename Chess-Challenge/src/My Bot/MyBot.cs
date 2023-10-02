@@ -31,12 +31,7 @@ public class MyBot : IChessBot
             transpositionTable.Clear();
             depth++;
             MiniMax(depth, -inf, inf, false, false, true);
-            Console.Write(" nodes visited:  "); //#DEBUG
-            Console.Write(nodes); //#DEBUG
-            Console.Write(" at depth "); //#DEBUG
-            Console.WriteLine(depth); //#DEBUG
         }
-        //while(depth < 20); //#DEBUG
         while(timer.MillisecondsElapsedThisTurn * 250 < timer.MillisecondsRemaining && depth < 10);
 
         System.Span<Move> moves = stackalloc Move[128];
