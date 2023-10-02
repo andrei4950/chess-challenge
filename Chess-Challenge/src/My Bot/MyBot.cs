@@ -44,7 +44,7 @@ public class MyBot : IChessBot
         System.Span<Move> moves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref moves);
         SortMoves(ref moves);
-        moveScoreTable.Clear();
+        //moveScoreTable.Clear();
         return moves[0];
     }
 
@@ -158,7 +158,33 @@ public class MyBot : IChessBot
         int white = CountMaterial(board.IsWhiteToMove);
         int black = CountMaterial(!board.IsWhiteToMove);
         isEndgame = white + black < 2750;
-        return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
+        // return white - black + GetAttackBonus();
+        return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove) + GetAttackBonus();
+    }
+
+    private int GetAttackBonus()
+    {
+        if(board.IsInCheck())
+            return 0;
+
+        board.TrySkipTurn();
+
+        int whiteAttacks = 0;
+        for(int i=0; i<64; i++)
+        {
+            if(board.SquareIsAttackedByOpponent(new Square(i)))
+                whiteAttacks++;
+        }
+
+        board.UndoSkipTurn();
+
+        for(int i=0; i<64; i++)
+        {
+            if(board.SquareIsAttackedByOpponent(new Square(i)))
+                whiteAttacks--;
+        }
+
+        return whiteAttacks;
     }
 
     public int CountMaterial(bool colour)
@@ -175,7 +201,7 @@ public class MyBot : IChessBot
         int eval = 0;
         // bonusess:
         //pawns
-        if (isEndgame && 1 < board.GetKingSquare(colour).Rank && board.GetKingSquare(colour).Rank < 6 && 1 < board.GetKingSquare(colour).File && board.GetKingSquare(colour).File < 6) eval += 20;
+
             
         PieceList pawns = board.GetPieceList(PieceType.Pawn, colour);
         for (int i = 0; i < pawns.Count; i++)
