@@ -7,7 +7,6 @@ public class MyBot : IChessBot
     Dictionary <ulong, int> transpositionTable = new();
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
-    int nodes = 0; //#DEBUG
     Board board;
 
     private bool isEndgame;
@@ -37,7 +36,6 @@ public class MyBot : IChessBot
         System.Span<Move> moves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref moves);
         SortMoves(ref moves);
-        moveScoreTable.Clear();
         return moves[0];
     }
 
@@ -47,7 +45,6 @@ public class MyBot : IChessBot
     /// </summary>
     public int MiniMax(int depth, int a, int b, bool isLastMoveCapture, bool isQuiescenceSearch, bool wasInCheck)
     {
-        nodes++; // DEBUG
         // Check if node was visited before
         ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 3) ^ ((ulong)depth << 10)^ ((ulong)a << 18)^ ((ulong)b << 26) ^ (ulong)(isLastMoveCapture ? 1 : 0) ^ (ulong)(isQuiescenceSearch ? 2 : 0) ^ (ulong)(wasInCheck ? 4 : 0);
         if(transpositionTable.TryGetValue(key, out var value)) 
@@ -85,10 +82,22 @@ public class MyBot : IChessBot
                 return bestEval;
             }
         }
+        bool isPV = true;
         foreach (Move move in allMoves)
         {
             board.MakeMove(move);
-            int eval = -MiniMax(depth - 1, -b, -a, move.IsCapture, isQuiescenceSearch, isInCheck);
+            int eval;
+            if(isPV)
+            {
+                eval = -MiniMax(depth - 1, -b, -a, move.IsCapture, isQuiescenceSearch, isInCheck);
+                isPV = false;
+            }
+            else
+            {
+                eval = -MiniMax(depth - 1, - a - 1, -a, move.IsCapture, isQuiescenceSearch, isInCheck);
+                if (eval > a)
+                    eval = -MiniMax(depth - 1, -b, -a, move.IsCapture, isQuiescenceSearch, isInCheck);
+            }
             board.UndoMove(move);
             
             moveScoreTable[move.RawValue ^ board.ZobristKey] = -eval - 900;

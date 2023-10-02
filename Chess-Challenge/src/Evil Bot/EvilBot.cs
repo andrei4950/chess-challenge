@@ -12,7 +12,11 @@ using System;
     Dictionary <ulong, int> transpositionTable = new();
     Dictionary <ulong, int> moveScoreTable = new();
     const int inf = 30000;
-    bool isEndgame = false;
+    int nodes = 0; //#DEBUG
+    Board board;
+
+    private bool isEndgame;
+
     private readonly int[] whitePawnDesiredPositions = { 0, 0, 0, 0, 0, 0, 0, 0, 
                                                 10, 10, 10, 0, 0, 10, 10, 10,
                                                 0, 5, 0, 11, 11, 0, 5, 0,
@@ -22,30 +26,19 @@ using System;
                                                 40, 40, 40, 40, 40, 40, 40, 40,
                                                 40, 40, 40, 40, 40, 40, 40, 40};
     private readonly int[] whitePawnDesiredRank = { 0, 0, 10, 20, 30, 40, 50, 60};
-    Board board;
-    //int nodes = 0;
     public Move Think(Board inputBoard, Timer timer)
     {
         board = inputBoard;
         int depth = 0;
-        int initTime, endTime;
-        initTime = timer.MillisecondsRemaining;
+
         do
         {
             transpositionTable.Clear();
             depth++;
-            MiniMax(depth, -inf, inf, false);
-            endTime = timer.MillisecondsRemaining;
-            //Console.WriteLine(isEndgame); //DEBUG
-            /*Console.Write("nodes:  "); //DEBUG
-            Console.Write(nodes); //DEBUG
-            Console.Write(" time elapsed: "); //DEBUG
-            Console.Write(initTime - endTime); //DEBUG
-            Console.Write(" at depth "); //DEBUG
-            Console.WriteLine(depth); //DEBUG*/
+            MiniMax(depth, -inf, inf, false, false, true);
         }
-        //while(depth < 20); //DEBUG
-        while((initTime - endTime) * 200 < endTime && depth < 20);
+        while(timer.MillisecondsElapsedThisTurn * 250 < timer.MillisecondsRemaining && depth < 10);
+
         System.Span<Move> moves = stackalloc Move[128];
         board.GetLegalMovesNonAlloc(ref moves);
         SortMoves(ref moves);
@@ -57,11 +50,11 @@ using System;
     /// Returns evaluation of the position calculated at specified depth (high value if position is good for the player to move)
     /// Makes use of transpositionTable for improved efficiency and moveScoreTable for sorting the moves (also better efficiency)
     /// </summary>
-    public int MiniMax(int depth, int a, int b, bool isLastMoveCapture)
+    public int MiniMax(int depth, int a, int b, bool isLastMoveCapture, bool isQuiescenceSearch, bool wasInCheck)
     {
-        //nodes ++;
+        nodes++; // DEBUG
         // Check if node was visited before
-        ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 1) ^ (ulong)(isLastMoveCapture ? 1 : 0) ^ ((ulong)depth << 8)^ ((ulong)a << 16)^ ((ulong)b << 24);
+        ulong key = board.ZobristKey ^ ((ulong)board.PlyCount << 3) ^ ((ulong)depth << 10)^ ((ulong)a << 18)^ ((ulong)b << 26) ^ (ulong)(isLastMoveCapture ? 1 : 0) ^ (ulong)(isQuiescenceSearch ? 2 : 0) ^ (ulong)(wasInCheck ? 4 : 0);
         if(transpositionTable.TryGetValue(key, out var value)) 
             return value;
 
@@ -71,37 +64,36 @@ using System;
 
         if (board.IsInCheckmate())
             return -inf - depth;
+
+        bool isInCheck = board.IsInCheck();
+
+        if (isQuiescenceSearch && !isLastMoveCapture && !isInCheck && !wasInCheck) // only want captures and checks in quiescence search (or getting out of check)
+            return inf;
   
-        int shallowEval = Eval();
-
         // or if we reached depth limit
-        if((depth <= 0 && !isLastMoveCapture) || depth <= -8)
-            return shallowEval;
-
+        if(depth <= 0)
+            if (isQuiescenceSearch) return Eval();
+            else return MiniMax(5, a, b, true, true, wasInCheck); // Quiescence search
         
         //get available moves
         System.Span<Move> allMoves = stackalloc Move[128];
-        board.GetLegalMovesNonAlloc(ref allMoves, depth <= 0);
+        board.GetLegalMovesNonAlloc(ref allMoves);
 
-        if (allMoves.Length == 0) 
-            return shallowEval;
-
-        if (depth >= -6) SortMoves(ref allMoves);
+        SortMoves(ref allMoves);
 
         int bestEval = -inf;
-        if (depth <= 0)
+        if (isQuiescenceSearch && !isInCheck)
         {
-            bestEval = shallowEval; // do not go deeper if a player prefers to not capture anything
+            bestEval = Eval(); // do not go deeper if a player prefers to not capture anything
             if (bestEval > b) // beta pruning
+            {
                 return bestEval;
-
-            if (bestEval > a) // update alpha (the improvement is probably only minor)
-                a = bestEval;
+            }
         }
         foreach (Move move in allMoves)
         {
             board.MakeMove(move);
-            int eval =  -MiniMax(depth - 1, -b, -a, move.IsCapture);
+            int eval = -MiniMax(depth - 1, -b, -a, move.IsCapture, isQuiescenceSearch, isInCheck);
             board.UndoMove(move);
             
             moveScoreTable[move.RawValue ^ board.ZobristKey] = -eval - 900;
@@ -114,45 +106,13 @@ using System;
             {
                 bestEval = eval;
                 if (eval > a) // update alpha
+                {
                     a = eval;
+                }
             }
         }
         transpositionTable[key] = bestEval;
         return bestEval;
-    }
-
-    /// <summary>
-    /// Sorts the moves based on move score
-    /// </summary>
-    public void SortMoves(ref Span<Move> moves)
-    {
-        System.Span<int> moveOrderKeys = stackalloc int[moves.Length];
-        for (int i = 0; i < moves.Length; i++)
-            moveOrderKeys[i] = GetMoveScore(moves[i]);
-        MemoryExtensions.Sort(moveOrderKeys, moves);
-    }
-
-    /// <summary>
-    /// Returns evaluation of the move 
-    /// Good moves recieve lower values
-    /// Best efficiency obtained with iterative deepening
-    /// Uses moveScoreTable
-    /// </summary>
-
-    public int GetMoveScore(Move move)
-    {
-        if(moveScoreTable.TryGetValue(move.RawValue ^ board.ZobristKey, out var value))
-        {
-            return value;
-        }
-        else
-        {
-            board.MakeMove(move);
-            int score = Eval();
-            board.UndoMove(move);
-            moveScoreTable[move.RawValue ^ board.ZobristKey] = score;
-            return score;
-        }
     }
 
     /// <summary>
@@ -163,7 +123,9 @@ using System;
         int white = CountMaterial(board.IsWhiteToMove);
         int black = CountMaterial(!board.IsWhiteToMove);
         isEndgame = white + black < 2750;
-        return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
+        //curved eval
+        //return white - black - white * white / 30000 + black * black / 30000 + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove) - (board.IsInCheck() ? 1 : 0);
+        return white - black + GetBonuses(board.IsWhiteToMove) - GetBonuses(!board.IsWhiteToMove);
     }
 
     public int CountMaterial(bool colour)
@@ -175,6 +137,10 @@ using System;
          + 900 * board.GetPieceList(PieceType.Queen, colour).Count;
     }
 
+
+    /// <summary>
+    /// Returns evaluation of the position (high value if position is good for the player to move)
+    /// </summary>
     public int GetBonuses(bool colour)
     {
         int eval = 0;
@@ -207,6 +173,39 @@ using System;
         eval += GetDistEvalBonus(board.GetPieceList(PieceType.Rook, colour));
         eval += GetDistEvalBonus(board.GetPieceList(PieceType.Queen, colour));
         return eval;
+    }
+
+    /// <summary>
+    /// Sorts the moves based on move score
+    /// </summary>
+    public void SortMoves(ref Span<Move> moves)
+    {
+        System.Span<int> moveOrderKeys = stackalloc int[moves.Length];
+        for (int i = 0; i < moves.Length; i++)
+            moveOrderKeys[i] = GetMoveScore(moves[i]);
+        MemoryExtensions.Sort(moveOrderKeys, moves);
+    }
+
+    /// <summary>
+    /// Returns evaluation of the move 
+    /// Good moves recieve lower values
+    /// Best efficiency obtained with iterative deepening
+    /// Uses moveScoreTable
+    /// </summary>
+    public int GetMoveScore(Move move)
+    {
+        if(moveScoreTable.TryGetValue(move.RawValue ^ board.ZobristKey, out var value))
+        {
+            return value;
+        }
+        else
+        {
+            board.MakeMove(move);
+            int score = Eval();
+            board.UndoMove(move);
+            moveScoreTable[move.RawValue ^ board.ZobristKey] = score;
+            return score;
+        }
     }
     
     public int GetDistEvalBonus(PieceList pieceList)
